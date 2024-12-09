@@ -3,6 +3,7 @@
 import os
 import sys
 
+#http://127.0.0.1:8000/
 
 def main():
     """Run administrative tasks."""
