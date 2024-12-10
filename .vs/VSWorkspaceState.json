@@ -1,7 +1,10 @@
 {
   "ExpandedNodes": [
     "",
+    "\\first_app",
+    "\\first_app\\templates",
     "\\first_project"
   ],
+  "SelectedNode": "\\manage.py",
   "PreviewInSolutionExplorer": false
 }
