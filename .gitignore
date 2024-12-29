@@ -1,5 +1,5 @@
-**/__pycache__/
-venv/
-.venv/
-.idea/
-
+venv
+.idea
+__pycache__
+.directory
+.pyc
