@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Текстовый ввод</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+        }
+
+        input[type="text"] {
+            padding: 10px;
+            font-size: 16px;
+            margin-right: 10px;
+            width: 250px;
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <h1>Create new complaint</h1>
+    <form method="post">
+        {% csrf_token %}
+        <label for="complaint_name">Name:</label>
+        <input type="text" id="complaint_name" name="complaint_name" required><br><br>
+
+        <label for="complaint_text">Complaint:</label>
+        <textarea id="complaint_text" name="complaint_text" required></textarea><br><br>
+
+        <button type="submit">Create complaint</button>
+    </form>
+</body>
+</html>
