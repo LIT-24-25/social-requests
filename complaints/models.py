@@ -4,3 +4,8 @@ class Complaint(models.Model):
     name = models.CharField(max_length=100, default='Unnamed Complaint')
     text = models.TextField()
     #embedding = JSONField()
+
+class Point(models.Model):
+    x = models.IntegerField()
+    y = models.IntegerField()
+    info = models.TextField()

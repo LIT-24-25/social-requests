@@ -16,10 +16,11 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
-from complaints.views import create_complaint
+from complaints.views import create_complaint, canvas_view
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include('complaints.urls')),
-    path('create_complaint/', create_complaint, name='create_complaint')
+    path('', create_complaint, name='create_complaint'),
+    path('canvas/', canvas_view, name='canvas_view')
 ]

@@ -1,10 +1,7 @@
 from django.shortcuts import render
 from rest_framework import generics
 from .serializers import ComplaintSerializer
-from .models import Complaint
-
-def page(request):
-    return render(request, "page.html")
+from .models import Complaint, Point
 
 class ComplaintListCreate(generics.ListCreateAPIView):
     queryset = Complaint.objects.all()
@@ -24,3 +21,7 @@ def create_complaint(request):
         new_item.save()
 
     return render(request, 'create_complaint.html')
+
+def canvas_view(request):
+    points = Point.objects.all()
+    return render(request, 'drawer.html', {'points': points})
