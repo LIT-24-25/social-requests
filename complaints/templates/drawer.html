@@ -6,24 +6,46 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Canvas</title>
     <style>
+        body {
+            display: flex;
+            align-items: flex-start;
+            padding: 20px;
+        }
         #canvas {
             border: 1px solid black;
+            margin-right: 20px;
         }
-        #info {
-            margin-top: 20px;
+        .info {
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+        }
+        .info div {
+            margin-top: 10px;
+            font-family: Arial, sans-serif;
+            font-size: 16px;
+            color: #333;
         }
     </style>
 </head>
 <body>
     <canvas id="canvas" width="600" height="500"></canvas>
-    <div id="text"></div>
+    <div class="info">
+        <div id="email">Email: example@example.com</div>
+        <div id="cluster">Cluster: Example Cluster</div>
+        <div id="name">Name: Example Name</div>
+        <div id="text">Text: Example Text</div>
+    </div>
 
     <script>
         class Point {
-            constructor(x, y, info) {
+            constructor(x, y, info, email, name, cluster) {
                 this.x = x;
                 this.y = y;
                 this.info = info;
+                this.email = email;
+                this.name = name;
+                this.cluster = cluster;
             }
 
             draw(ctx, pointRadius) {
@@ -50,7 +72,7 @@
             try {
                 const response = await fetch('/api/complaints');
                 const data = await response.json();
-                points = data.map(point => new Point(point.x, point.y, point.text));
+                points = data.map(point => new Point(point.x, point.y, point.text, point.email, point.name, point.cluster));
                 drawPoints();
             } catch (error) {
                 console.error('Ошибка при загрузке точек:', error);
@@ -69,6 +91,9 @@
 
             points.forEach(point => {
                 if (point.isClicked(x, y, pointRadius)) {
+                    document.getElementById('email').innerText = point.email;
+                    document.getElementById('cluster').innerText = point.cluster;
+                    document.getElementById('name').innerText = point.name;
                     document.getElementById('text').innerText = point.info;
                 }
             });
