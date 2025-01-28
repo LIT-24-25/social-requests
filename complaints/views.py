@@ -1,7 +1,7 @@
 from django.shortcuts import render
 from rest_framework import generics
 from .serializers import ComplaintSerializer
-from .models import Complaint, Point
+from .models import Complaint
 
 class ComplaintListCreate(generics.ListCreateAPIView):
     queryset = Complaint.objects.all()
@@ -11,17 +11,16 @@ class ComplaintDetail(generics.RetrieveUpdateDestroyAPIView):
     queryset = Complaint.objects.all()
     serializer_class = ComplaintSerializer
 
-
 def create_complaint(request):
     if request.method == 'POST':
-        item_name = request.POST.get('complaint_name')
-        item_description = request.POST.get('complaint_text')
-
-        new_item = Complaint.objects.create(name=item_name, text=item_description)
+        user_email = request.POST.get('user_email')
+        complaint_name = request.POST.get('complaint_name')
+        complaint_description = request.POST.get('complaint_text')
+        new_item = Complaint.objects.create(email = user_email, name=complaint_name, text=complaint_description, x=100, y=100)
         new_item.save()
 
     return render(request, 'create_complaint.html')
 
 def canvas_view(request):
-    points = Point.objects.all()
-    return render(request, 'drawer.html', {'points': points})
+    complaints = Complaint.objects.all()
+    return render(request, 'drawer.html', {'complaints': complaints})

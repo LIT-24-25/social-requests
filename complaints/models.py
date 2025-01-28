@@ -1,11 +1,8 @@
 from django.db import models
 
 class Complaint(models.Model):
+    email = models.CharField(max_length=100, default='No Email')
     name = models.CharField(max_length=100, default='Unnamed Complaint')
     text = models.TextField()
-    #embedding = JSONField()
-
-class Point(models.Model):
-    x = models.IntegerField()
-    y = models.IntegerField()
-    info = models.TextField()
+    x = models.IntegerField(default=0)
+    y = models.IntegerField(default=0)

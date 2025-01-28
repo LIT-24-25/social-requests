@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Canvas Points</title>
+    <title>Canvas</title>
     <style>
         #canvas {
             border: 1px solid black;
@@ -15,23 +15,51 @@
     </style>
 </head>
 <body>
-    <canvas id="canvas" width="800" height="600"></canvas>
-    <div id="info"></div>
+    <canvas id="canvas" width="600" height="500"></canvas>
+    <div id="text"></div>
 
     <script>
-        const canvas = document.getElementById('canvas');
-        const ctx = canvas.getContext('2d');
-        const points = {{ points|safe }};
-        const pointRadius = 10;
+        class Point {
+            constructor(x, y, info) {
+                this.x = x;
+                this.y = y;
+                this.info = info;
+            }
 
-        function drawPoints() {
-            points.forEach(point => {
+            draw(ctx, pointRadius) {
                 ctx.beginPath();
-                ctx.arc(point.x, point.y, pointRadius, 0, Math.PI * 2);
+                ctx.arc(this.x, this.y, pointRadius, 0, Math.PI * 2);
                 ctx.fillStyle = 'black';
                 ctx.fill();
                 ctx.closePath();
-            });
+            }
+
+            isClicked(clickX, clickY, pointRadius) {
+                const dx = this.x - clickX;
+                const dy = this.y - clickY;
+                return Math.sqrt(dx * dx + dy * dy) < pointRadius;
+            }
+        }
+
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const pointRadius = 7;
+        let points = [];
+
+        async function fetchPoints() {
+            try {
+                const response = await fetch('/api/complaints');
+                const data = await response.json();
+                points = data.map(point => new Point(point.x, point.y, point.text));
+                drawPoints();
+            } catch (error) {
+                console.error('Ошибка при загрузке точек:', error);
+            }
+        }
+
+        function drawPoints() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            points.forEach(point => point.draw(ctx, pointRadius));
         }
 
         canvas.addEventListener('click', function(event) {
@@ -40,15 +68,13 @@
             const y = event.clientY - rect.top;
 
             points.forEach(point => {
-                const dx = point.x - x;
-                const dy = point.y - y;
-                if (Math.sqrt(dx * dx + dy * dy) < pointRadius) {
-                    document.getElementById('info').innerText = point.info;
+                if (point.isClicked(x, y, pointRadius)) {
+                    document.getElementById('text').innerText = point.info;
                 }
             });
         });
 
-        drawPoints();
+        fetchPoints();
     </script>
 </body>
 </html>
