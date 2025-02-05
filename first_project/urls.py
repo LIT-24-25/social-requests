@@ -17,10 +17,13 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path, include
 from complaints.views import create_complaint, canvas_view
+from clusters.views import ClusterListView, ClusterCreateView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include('complaints.urls')),
     path('', create_complaint, name='create_complaint'),
-    path('canvas/', canvas_view, name='canvas_view')
+    path('canvas/', canvas_view, name='canvas_view'),
+    path('clusters/', ClusterListView.as_view(), name='cluster-list'),
+    path('clusters/create/', ClusterCreateView.as_view(), name='cluster-create'),
 ]
