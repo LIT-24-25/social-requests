@@ -13,6 +13,4 @@ class Complaint(models.Model):
     cluster = models.ForeignKey(
         Cluster,
         on_delete=models.CASCADE,
-        #related_name='complaints',
-        #verbose_name="Кластер"
     )
