@@ -24,6 +24,15 @@
             font-size: 16px;
             color: #333;
         }
+        .buttons {
+            margin-top: 20px;
+        }
+        .buttons button {
+            margin-right: 10px;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
@@ -34,7 +43,10 @@
         <div id="name">Name: Example Name</div>
         <div id="text">Text: Example Text</div>
     </div>
-    <button id="sendSelected">Отправить выделенные</button>
+    <div class="buttons">
+        <button id="sendSelected">Отправить выделенные</button>
+        <button id="resetSelection">Сбросить выделение</button> <!-- Новая кнопка -->
+    </div>
 
     <script>
         class Point {
@@ -104,6 +116,8 @@
             const x = event.clientX - rect.left;
             const y = event.clientY - rect.top;
 
+            let clickedOnPoint = false;
+
             points.forEach(point => {
                 if (point.isClicked(x, y, pointRadius)) {
                     point.selected = !point.selected; // Переключаем выделение
@@ -111,8 +125,10 @@
                     document.getElementById('cluster').innerText = `Cluster: ${point.cluster}`;
                     document.getElementById('name').innerText = `Name: ${point.name}`;
                     document.getElementById('text').innerText = `Text: ${point.info}`;
+                    clickedOnPoint = true;
                 }
             });
+
             drawPoints();
         });
 
@@ -188,6 +204,23 @@
             .catch(error => {
                 console.error('Ошибка при отправке выделенных жалоб:', error);
             });
+        });
+
+        // Обработчик кнопки "Сбросить выделение"
+        document.getElementById('resetSelection').addEventListener('click', function() {
+            // Снимаем выделение со всех точек
+            points.forEach(point => {
+                point.selected = false;
+            });
+
+            // Очищаем информацию в блоке .info
+            document.getElementById('email').innerText = 'Email:';
+            document.getElementById('cluster').innerText = 'Cluster:';
+            document.getElementById('name').innerText = 'Name:';
+            document.getElementById('text').innerText = 'Text:';
+
+            // Перерисовываем canvas
+            drawPoints();
         });
 
         fetchPoints();
