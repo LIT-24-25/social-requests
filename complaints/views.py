@@ -6,6 +6,10 @@ from .serializers import ComplaintSerializer
 from .models import Complaint
 import random as rnd
 
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+import json
+
 class ComplaintListCreate(generics.ListCreateAPIView):
     queryset = Complaint.objects.all()
     serializer_class = ComplaintSerializer
@@ -35,3 +39,16 @@ def create_complaint(request):
 def canvas_view(request):
     complaints = Complaint.objects.all()
     return render(request, 'drawer.html', {'complaints': complaints})
+
+
+@csrf_exempt
+def selected_complaints(request):
+    if request.method == 'POST':
+        data = json.loads(request.body)
+        selected_ids = data.get('ids', [])
+
+        # Здесь можно выполнить действия с выделенными жалобами
+        print("Выделенные ID:", selected_ids)
+
+        return JsonResponse({'status': 'success'})
+    return JsonResponse({'status': 'error'}, status=400)
