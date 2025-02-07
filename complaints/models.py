@@ -7,11 +7,13 @@ class Complaint(models.Model):
     text = models.TextField()
     x = models.IntegerField(default=0)
     y = models.IntegerField(default=0)
-    embedding = models.JSONField()
+    embedding = models.JSONField(default=None, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     cluster = models.ForeignKey(
         Cluster,
         on_delete=models.CASCADE,
+        null=True,
+        default=None
     )
