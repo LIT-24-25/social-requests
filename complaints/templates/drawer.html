@@ -16,9 +16,13 @@
         .info {
             display: flex;
             flex-direction: column;
+        }
+        .text {
+            display: flex;
+            flex-direction: column;
             justify-content: flex-start;
         }
-        .info div {
+        .text div {
             margin-top: 10px;
             font-family: Arial, sans-serif;
             font-size: 16px;
@@ -26,6 +30,9 @@
         }
         .buttons {
             margin-top: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
         }
         .buttons button {
             margin-right: 10px;
@@ -38,15 +45,18 @@
 <body>
     <canvas id="canvas" width="600" height="500"></canvas>
     <div class="info">
-        <div id="email">Email: example@example.com</div>
-        <div id="cluster">Cluster: Example Cluster</div>
-        <div id="name">Name: Example Name</div>
-        <div id="text">Text: Example Text</div>
+        <div class="text">
+            <div id="email">Email: example@example.com</div>
+            <div id="cluster">Cluster: Example Cluster</div>
+            <div id="name">Name: Example Name</div>
+            <div id="text">Text: Example Text</div>
+        </div>
+        <div class="buttons">
+            <button id="sendSelected">Отправить выделенные</button>
+            <button id="resetSelection">Сбросить выделение</button> <!-- Новая кнопка -->
+        </div>
     </div>
-    <div class="buttons">
-        <button id="sendSelected">Отправить выделенные</button>
-        <button id="resetSelection">Сбросить выделение</button> <!-- Новая кнопка -->
-    </div>
+
 
     <script>
         class Point {
