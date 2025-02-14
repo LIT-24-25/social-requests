@@ -24,9 +24,9 @@ from .serializers import ClusterSerializer
 #         return JsonResponse({'id': cluster.id, 'summary': cluster.summary})
 
 class ClusterListCreate(generics.ListCreateAPIView):
-    queryset = Complaint.objects.all()
+    queryset = Cluster.objects.all()
     serializer_class = ClusterSerializer
 
 class ClusterDetail(generics.RetrieveUpdateDestroyAPIView):
-    queryset = Complaint.objects.all()
+    queryset = Cluster.objects.all()
     serializer_class = ClusterSerializer

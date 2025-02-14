@@ -196,41 +196,51 @@
 
         // Обработчик кнопки "Отправить выделенные"
         document.getElementById('sendSelected').addEventListener('click', function() {
-            selectedPoints = points.filter(point => point.selected);
-            const selectedIds = selectedPoints.map(point => point.info); // Предположим, что info — это ID
+            // Получаем выделенные точки
+            const selectedPoints = points.filter(point => point.selected);
+            const selectedIds = selectedPoints.map(point => point.info); // Предположим, что info — это ID жалобы
+
+            // Проверяем, есть ли выделенные точки
+            if (selectedIds.length === 0) {
+                alert('Выберите хотя бы одну точку для отправки.');
+                return;
+            }
+
+            // Запрашиваем имя нового кластера у пользователя
+            const clusterName = prompt('Введите имя нового кластера:');
+            if (!clusterName) {
+                alert('Имя кластера не может быть пустым.');
+                return;
+            }
 
             // Отправляем данные на сервер
-            fetch('/api/selected_complaints/', {
+            fetch('/api/create_cluster/', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ ids: selectedIds }),
+                body: JSON.stringify({
+                    name: clusterName,
+                    complaint_ids: selectedIds,
+                }),
             })
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Ошибка при отправке данных на сервер.');
+                }
+                return response.json();
+            })
             .then(data => {
-                console.log('Выделенные жалобы отправлены:', data);
+                console.log('Кластер успешно создан:', data);
+                alert('Кластер успешно создан и жалобы обновлены.');
+                // Сбрасываем выделение после успешной отправки
+                points.forEach(point => point.selected = false);
+                drawPoints();
             })
             .catch(error => {
-                console.error('Ошибка при отправке выделенных жалоб:', error);
+                console.error('Ошибка:', error);
+                alert('Произошла ошибка при создании кластера.');
             });
-        });
-
-        // Обработчик кнопки "Сбросить выделение"
-        document.getElementById('resetSelection').addEventListener('click', function() {
-            // Снимаем выделение со всех точек
-            points.forEach(point => {
-                point.selected = false;
-            });
-
-            // Очищаем информацию в блоке .info
-            document.getElementById('email').innerText = 'Email:';
-            document.getElementById('cluster').innerText = 'Cluster:';
-            document.getElementById('name').innerText = 'Name:';
-            document.getElementById('text').innerText = 'Text:';
-
-            // Перерисовываем canvas
-            drawPoints();
         });
 
         fetchPoints();

@@ -16,8 +16,7 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
-from complaints.views import create_complaint, canvas_view
-#from clusters.views import ClusterListView, ClusterCreateView
+from complaints.views import create_complaint, canvas_view, CreateClusterView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -25,4 +24,5 @@ urlpatterns = [
     path('', create_complaint),
     path('canvas/', canvas_view),
     path('api/', include('clusters.urls')),
+    path('api/create_cluster/', CreateClusterView.as_view(), name='create_cluster'),
 ]
