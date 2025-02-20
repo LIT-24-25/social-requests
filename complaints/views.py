@@ -23,7 +23,7 @@ def create_complaint(request):
         user_email = request.POST.get('user_email')
         complaint_name = request.POST.get('complaint_name')
         complaint_description = request.POST.get('complaint_text')
-        cluster = Cluster.objects.get(id=1)
+        cluster = None
         new_item = Complaint.objects.create(
             email = user_email,
             name=complaint_name,
