@@ -60,14 +60,15 @@
 
     <script>
         class Point {
-            constructor(x, y, info, email, name, cluster) {
+            constructor(id, x, y, info, email, name, cluster) {
+                this.id = id;  // Добавляем ID
                 this.x = x;
                 this.y = y;
                 this.info = info;
                 this.email = email;
                 this.name = name;
                 this.cluster = cluster;
-                this.selected = false; // Добавляем флаг выделения
+                this.selected = false;
             }
 
             draw(ctx, pointRadius) {
@@ -102,12 +103,19 @@
         let startX, startY;
         let selectedPoints = [];
 
-        // Функция для загрузки точек с сервера
         async function fetchPoints() {
             try {
                 const response = await fetch('/api/complaints');
                 const data = await response.json();
-                points = data.map(point => new Point(point.x, point.y, point.text, point.email, point.name, point.cluster));
+                points = data.map(point => new Point(
+                    point.id,  // Передаем ID
+                    point.x,
+                    point.y,
+                    point.text,
+                    point.email,
+                    point.name,
+                    point.cluster
+                ));
                 drawPoints();
             } catch (error) {
                 console.error('Ошибка при загрузке точек:', error);
@@ -195,52 +203,51 @@
         });
 
         // Обработчик кнопки "Отправить выделенные"
-        document.getElementById('sendSelected').addEventListener('click', function() {
-            // Получаем выделенные точки
-            const selectedPoints = points.filter(point => point.selected);
-            const selectedIds = selectedPoints.map(point => point.info); // Предположим, что info — это ID жалобы
+        document.getElementById('sendSelected').addEventListener('click', async function() {
+            // Собираем ID выделенных жалоб
+            const selectedComplaintIds = points
+                .filter(point => point.selected)
+                .map(point => point.id);  // Предполагаем, что у точек есть ID
 
-            // Проверяем, есть ли выделенные точки
-            if (selectedIds.length === 0) {
-                alert('Выберите хотя бы одну точку для отправки.');
+            if (selectedComplaintIds.length === 0) {
+                alert("Выберите хотя бы одну жалобу!");
                 return;
             }
 
-            // Запрашиваем имя нового кластера у пользователя
-            const clusterName = prompt('Введите имя нового кластера:');
-            if (!clusterName) {
-                alert('Имя кластера не может быть пустым.');
-                return;
-            }
+            try {
+                // Отправляем данные на сервер
+                const response = await fetch('/api/create-cluster/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',  // Убрали 'X-CSRFToken'
+                    },
+                    body: JSON.stringify({ complaint_ids: selectedComplaintIds })
+                });
 
-            // Отправляем данные на сервер
-            fetch('/api/create_cluster/', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    name: clusterName,
-                    complaint_ids: selectedIds,
-                }),
-            })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error('Ошибка при отправке данных на сервер.');
+                if (response.ok) {
+                    const data = await response.json();
+                    alert(`Кластер успешно создан! ID: ${data.cluster_id}`);
+                } else {
+                    alert("Ошибка при создании кластера");
                 }
-                return response.json();
-            })
-            .then(data => {
-                console.log('Кластер успешно создан:', data);
-                alert('Кластер успешно создан и жалобы обновлены.');
-                // Сбрасываем выделение после успешной отправки
-                points.forEach(point => point.selected = false);
-                drawPoints();
-            })
-            .catch(error => {
+            } catch (error) {
                 console.error('Ошибка:', error);
-                alert('Произошла ошибка при создании кластера.');
+                alert("Произошла ошибка при отправке данных");
+            }
+        });
+
+        // Снимаем выделение всех точек
+        document.getElementById('resetSelection').addEventListener('click', function() {
+            points.forEach(point => {
+                point.selected = false;
             });
+
+            drawPoints();
+
+            document.getElementById('email').innerText = 'Email: example@example.com';
+            document.getElementById('cluster').innerText = 'Cluster: Example Cluster';
+            document.getElementById('name').innerText = 'Name: Example Name';
+            document.getElementById('text').innerText = 'Text: Example Text';
         });
 
         fetchPoints();

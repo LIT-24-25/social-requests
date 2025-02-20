@@ -1,27 +1,13 @@
-from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
-from django.utils.decorators import method_decorator
-from django.views import View
 from clusters.models import Cluster
 from complaints.models import Complaint
 from rest_framework import generics
-import json
 from .serializers import ClusterSerializer
-
-# class ClusterListView(View):
-#     def get(self, request):
-#         clusters = Cluster.objects.all().values()
-#         return JsonResponse(list(clusters), safe=False)
-#
-# @method_decorator(csrf_exempt, name='dispatch')
-# class ClusterCreateView(View):
-#     def post(self, request):
-#         data = json.loads(request.body)
-#         complaint_ids = data.get('complaint_ids', []) # better to use Serializer here
-#         complaints = Complaint.objects.filter(id__in=complaint_ids)
-#         cluster = Cluster.objects.create(summary=data.get('summary', ''))
-#         cluster.complaints.set(complaints)
-#         return JsonResponse({'id': cluster.id, 'summary': cluster.summary})
+from complaints.serializers import ComplaintSerializer
+from django.shortcuts import render
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from django.shortcuts import get_object_or_404
 
 class ClusterListCreate(generics.ListCreateAPIView):
     queryset = Cluster.objects.all()
@@ -30,3 +16,32 @@ class ClusterListCreate(generics.ListCreateAPIView):
 class ClusterDetail(generics.RetrieveUpdateDestroyAPIView):
     queryset = Cluster.objects.all()
     serializer_class = ClusterSerializer
+
+def cluster_list(request):
+    # Получаем все кластеры и их количество
+    clusters = Cluster.objects.all()
+    total_clusters = clusters.count()
+
+    # Передаем данные в шаблон
+    return render(request, 'clusters_list.html', {
+        'total_clusters': total_clusters,
+        'clusters': clusters,
+    })
+
+class ClusterDetailAPI(APIView):
+    def get(self, request, cluster_id):
+        # Получаем кластер по ID
+        cluster = get_object_or_404(Cluster, id=cluster_id)
+
+        # Получаем все жалобы, связанные с этим кластером
+        complaints = Complaint.objects.filter(cluster=cluster)
+
+        # Сериализуем данные
+        cluster_data = ClusterSerializer(cluster).data
+        complaints_data = ComplaintSerializer(complaints, many=True).data
+
+        # Возвращаем данные
+        return Response({
+            **cluster_data,
+            'complaints': complaints_data,
+        }, status=status.HTTP_200_OK)

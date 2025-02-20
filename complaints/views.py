@@ -1,17 +1,14 @@
 from django.shortcuts import render
 from rest_framework import generics
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
 from clusters.models import Cluster
 from .serializers import ComplaintSerializer
 from .models import Complaint
-from clusters.serializers import ClusterSerializer
 import random as rnd
-
-from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
-import json
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from django.shortcuts import get_object_or_404
+from .models import Complaint, Cluster
 
 class ComplaintListCreate(generics.ListCreateAPIView):
     queryset = Complaint.objects.all()
@@ -43,42 +40,24 @@ def canvas_view(request):
     complaints = Complaint.objects.all()
     return render(request, 'drawer.html', {'complaints': complaints})
 
-
-# @csrf_exempt
-# def selected_complaints(request):
-#     if request.method == 'POST':
-#         data = json.loads(request.body)
-#         selected_ids = data.get('ids', [])
-#
-#         # Здесь можно выполнить действия с выделенными жалобами
-#         print("Выделенные ID:", selected_ids)
-#
-#         return JsonResponse({'status': 'success'})
-#     return JsonResponse({'status': 'error'}, status=400)
-
-class CreateClusterView(APIView):
+class CreateClusterWithComplaints(APIView):
     def post(self, request):
-        cluster_name = request.data.get('name')
-        complaint_ids = request.data.get('complaint_ids')
-
-        if not cluster_name or not complaint_ids:
-            return Response(
-                {'error': 'Missing cluster name or complaint IDs'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+        # Получаем список ID жалоб из запроса
+        complaint_ids = request.data.get('complaint_ids', [])
 
         # Создаем новый кластер
-        new_cluster = Cluster.objects.create(name=cluster_name)
+        new_cluster = Cluster.objects.create(
+            name=f"Cluster {Cluster.objects.count() + 1}",  # Автоматическое имя
+            summary="Auto-generated cluster"  # Можно изменить или добавить логику для summary
+        )
 
-        # Обновляем жалобы, добавляя их в новый кластер
-        complaints = Complaint.objects.filter(id__in=complaint_ids)
-        complaints.update(cluster=new_cluster)
+        # Привязываем жалобы к новому кластеру
+        for complaint_id in complaint_ids:
+            complaint = get_object_or_404(Complaint, id=complaint_id)
+            complaint.cluster = new_cluster
+            complaint.save()
 
-        # Сериализуем результат для ответа
-        cluster_serializer = ClusterSerializer(new_cluster)
-        complaints_serializer = ComplaintSerializer(complaints, many=True)
-
-        return Response({
-            'cluster': cluster_serializer.data,
-            'complaints': complaints_serializer.data
-        }, status=status.HTTP_201_CREATED)
+        return Response(
+            {"message": "Cluster created successfully", "cluster_id": new_cluster.id},
+            status=status.HTTP_201_CREATED
+        )

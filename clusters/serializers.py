@@ -5,4 +5,3 @@ class ClusterSerializer(serializers.ModelSerializer):
     class Meta:
         model = Cluster
         fields = '__all__'
-
