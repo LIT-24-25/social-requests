@@ -40,6 +40,20 @@
             font-size: 16px;
             cursor: pointer;
         }
+        .step-control {
+            margin-top: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .step-control label {
+            font-family: Arial, sans-serif;
+            font-size: 16px;
+            color: #333;
+        }
+        .step-control input[type="range"] {
+            width: 100%;
+        }
     </style>
 </head>
 <body>
@@ -53,15 +67,18 @@
         </div>
         <div class="buttons">
             <button id="sendSelected">Отправить выделенные</button>
-            <button id="resetSelection">Сбросить выделение</button> <!-- Новая кнопка -->
+            <button id="resetSelection">Сбросить выделение</button>
+        </div>
+        <div class="step-control">
+            <label for="stepRange">Step (0-1000): <span id="stepValue">500</span></label>
+            <input type="range" id="stepRange" min="0" max="1000" value="500">
+            <button id="applyTsne">Apply t-SNE</button>
         </div>
     </div>
-
-
     <script>
         class Point {
             constructor(id, x, y, info, email, name, cluster) {
-                this.id = id;  // Добавляем ID
+                this.id = id;
                 this.x = x;
                 this.y = y;
                 this.info = info;
@@ -102,13 +119,14 @@
         let isDrawing = false;
         let startX, startY;
         let selectedPoints = [];
+        let step = 500; // Начальное значение step
 
         async function fetchPoints() {
             try {
                 const response = await fetch('/api/complaints');
                 const data = await response.json();
                 points = data.map(point => new Point(
-                    point.id,  // Передаем ID
+                    point.id,
                     point.x,
                     point.y,
                     point.text,
@@ -248,6 +266,38 @@
             document.getElementById('cluster').innerText = 'Cluster: Example Cluster';
             document.getElementById('name').innerText = 'Name: Example Name';
             document.getElementById('text').innerText = 'Text: Example Text';
+        });
+
+        const stepRange = document.getElementById('stepRange');
+        const stepValue = document.getElementById('stepValue');
+        stepRange.addEventListener('input', function() {
+            step = parseInt(stepRange.value);
+            stepValue.innerText = step;
+        });
+
+        // Обработчик кнопки "Apply t-SNE"
+        document.getElementById('applyTsne').addEventListener('click', async function() {
+            const step = parseInt(document.getElementById('stepRange').value);
+
+            try {
+                // Отправляем запрос на сервер
+                const response = await fetch('/api/apply-tsne/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ step: step })
+                });
+
+                if (response.ok) {
+                    alert("Функция apply_tsne вызвана успешно!");
+                } else {
+                    alert("Ошибка при вызове apply_tsne");
+                }
+            } catch (error) {
+                console.error('Ошибка:', error);
+                alert("Произошла ошибка при отправке запроса");
+            }
         });
 
         fetchPoints();

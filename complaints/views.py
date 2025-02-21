@@ -8,7 +8,9 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from django.shortcuts import get_object_or_404
-from .models import Complaint, Cluster
+from django.http import JsonResponse
+import json
+from django.views.decorators.csrf import csrf_exempt
 
 class ComplaintListCreate(generics.ListCreateAPIView):
     queryset = Complaint.objects.all()
@@ -61,3 +63,26 @@ class CreateClusterWithComplaints(APIView):
             {"message": "Cluster created successfully", "cluster_id": new_cluster.id},
             status=status.HTTP_201_CREATED
         )
+
+def apply_tsne(step):
+    print(f"Функция apply_tsne вызвана с step = {step}")
+    # Здесь можно добавить логику, если нужно
+    pass
+
+# API для вызова apply_tsne
+@csrf_exempt
+def apply_tsne_api(request):
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            step = data.get('step')
+            if step is None:
+                return JsonResponse({"error": "Параметр step отсутствует"}, status=400)
+            # Вызываем функцию apply_tsne
+            apply_tsne(step)
+
+            return JsonResponse({"message": "Функция apply_tsne вызвана успешно"})
+        except json.JSONDecodeError:
+            return JsonResponse({"error": "Неверный формат JSON"}, status=400)
+    else:
+        return JsonResponse({"error": "Метод не разрешен"}, status=405)
