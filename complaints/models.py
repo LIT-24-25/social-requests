@@ -12,7 +12,6 @@ class Complaint(models.Model):
     embedding = models.JSONField(default=None, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-
     cluster = models.ForeignKey(
         Cluster,
         on_delete=models.CASCADE,
