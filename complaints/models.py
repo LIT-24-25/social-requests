@@ -2,6 +2,7 @@ from django.db import models
 from clusters.models import Cluster
 from gigachat import GigaChat
 from gigachat.exceptions import GigaChatException
+from django.conf import settings
 
 class Complaint(models.Model):
     email = models.CharField(max_length=100, default='No Email')
