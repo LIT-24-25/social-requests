@@ -70,10 +70,10 @@
         <canvas ref="canvas" id="canvas" width="600" height="500"></canvas>
         <div class="info">
             <div class="text">
-                <div>Email: {{ currentPoint.email|default:'example@example.com' }}</div>
-                <div>Cluster: {{ currentPoint.cluster|default:'Example Cluster' }}</div>
-                <div>Name: {{ currentPoint.name|default:'Example Name' }}</div>
-                <div>Text: {{ currentPoint.info|default:'Example Text' }}</div>
+                <div>Email: [[ currentPoint.email ]]</div>
+                <div>Cluster: [[ currentPoint.cluster ]]</div>
+                <div>Name: [[ currentPoint.name ]]</div>
+                <div>Text: [[ currentPoint.info ]]</div>
             </div>
             <div class="buttons">
                 <button @click="sendSelected">Отправить выделенные</button>
@@ -127,6 +127,7 @@
         }
 
         createApp({
+            delimiters: ['[[', ']]'],
             data() {
                 return {
                     points: [],
