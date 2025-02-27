@@ -68,20 +68,23 @@ def canvas_view(request):
 
 class CreateClusterWithComplaints(APIView):
     def post(self, request):
-        # Получаем список ID жалоб из запроса
         complaint_ids = request.data.get('complaint_ids', [])
-
+        
         # Создаем новый кластер
         new_cluster = Cluster.objects.create(
-            name=f"Cluster {Cluster.objects.count() + 1}",  # Автоматическое имя
-            summary="Auto-generated cluster"  # Можно изменить или добавить логику для summary
+            name=f"Cluster {Cluster.objects.count() + 1}",
+            summary="Генерация описания..."  # Временный текст
         )
 
-        # Привязываем жалобы к новому кластеру
+        # Привязываем жалобы и обновляем кластер
         for complaint_id in complaint_ids:
             complaint = get_object_or_404(Complaint, id=complaint_id)
             complaint.cluster = new_cluster
             complaint.save()
+        
+        # Генерируем и сохраняем суммаризацию
+        new_cluster.summary = new_cluster.generate_summary()
+        new_cluster.save()
 
         return Response(
             {"message": "Cluster created successfully", "cluster_id": new_cluster.id},
