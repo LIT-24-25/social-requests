@@ -20,22 +20,46 @@ class ComplaintDetail(generics.RetrieveUpdateDestroyAPIView):
     queryset = Complaint.objects.all()
     serializer_class = ComplaintSerializer
 
+@csrf_exempt  # Только для тестирования! В продакшене лучше настроить CSRF правильно
 def create_complaint(request):
     if request.method == 'POST':
-        user_email = request.POST.get('user_email')
-        complaint_name = request.POST.get('complaint_name')
-        complaint_description = request.POST.get('complaint_text')
-        cluster = None
-        new_item = Complaint.objects.create(
-            email = user_email,
-            name=complaint_name,
-            text=complaint_description,
-            x=rnd.randint(5, 400),
-            y=rnd.randint(5, 400),
-            cluster=cluster
-        )
-        new_item.save()
+        try:
+            # Парсим JSON данные из тела запроса
+            data = json.loads(request.body)
+            
+            # Получаем данные из JSON
+            user_email = data.get('email')
+            complaint_name = data.get('name')
+            complaint_description = data.get('text')
+            
+            # Проверяем наличие всех необходимых данных
+            if not all([user_email, complaint_name, complaint_description]):
+                return JsonResponse({
+                    'success': False,
+                    'message': 'Все поля должны быть заполнены'
+                }, status=400)
 
+            # Создаем новую жалобу
+            new_item = Complaint.objects.create(
+                email=user_email,
+                name=complaint_name,
+                text=complaint_description,
+                x=rnd.randint(5, 400),
+                y=rnd.randint(5, 400),
+                cluster=None
+            )
+            
+            return JsonResponse({
+                'success': True,
+                'message': 'Жалоба успешно создана'
+            })
+            
+        except json.JSONDecodeError:
+            return JsonResponse({
+                'success': False,
+                'message': 'Неверный формат данных'
+            }, status=400)
+            
     return render(request, 'create_complaint.html')
 
 def canvas_view(request):

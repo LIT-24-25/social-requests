@@ -80,8 +80,8 @@
                 <button @click="resetSelection">Сбросить выделение</button>
             </div>
             <div class="step-control">
-                <label for="stepRange">Step (0-1000): {{ step }}</label>
-                <input type="range" id="stepRange" v-model.number="step" min="0" max="1000">
+                <label for="stepRange">Step (1 - 1000): [[ step ]]</label>
+                <input type="range" id="stepRange" v-model.number="step" min="1" max="1000">
                 <button @click="applyTsne">Apply t-SNE</button>
             </div>
         </div>
