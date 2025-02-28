@@ -3,7 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Текстовый ввод</title>
+    <title>Создание жалобы</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -22,22 +24,97 @@
             font-size: 16px;
             cursor: pointer;
         }
+
+        .form-container { max-width: 600px; margin: 0 auto; }
+        .form-group { margin-bottom: 1rem; }
+        label { display: block; margin-bottom: 0.5rem; }
+        input, textarea {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .error { border-color: #ff4444; }
+        .success-message { color: #00C851; margin-top: 1rem; }
     </style>
 </head>
 <body>
-    <h1>Create new complaint</h1>
-    <form method="post">
-        {% csrf_token %}
-        <label for="user_email">Email:</label>
-        <input type="text" id="user_email" name="user_email" required><br><br>
+    <!-- Добавляем CSRF токен ВНЕ приложения Vue -->
+    {% csrf_token %}
+    
+    <div id="app" class="form-container">
+        <h1>Создать новую жалобу</h1>
+        
+        <form @submit.prevent="submitComplaint">
+            <div class="form-group">
+                <label for="user_email">Email:</label>
+                <input type="text" id="user_email" v-model="formData.email"
+                       :class="{ error: !formData.email }" required>
+            </div>
 
-        <label for="complaint_name">Name:</label>
-        <input type="text" id="complaint_name" name="complaint_name" required><br><br>
+            <div class="form-group">
+                <label for="complaint_name">Имя:</label>
+                <input type="text" id="complaint_name" v-model="formData.name"
+                       :class="{ error: !formData.name }" required>
+            </div>
 
-        <label for="complaint_text">Complaint:</label>
-        <textarea id="complaint_text" name="complaint_text" required></textarea><br><br>
+            <div class="form-group">
+                <label for="complaint_text">Жалоба:</label>
+                <textarea id="complaint_text" v-model="formData.text" 
+                         rows="5" :class="{ error: !formData.text }" required></textarea>
+            </div>
 
-        <button type="submit">Create complaint</button>
-    </form>
+            <button type="submit">Отправить жалобу</button>
+        </form>
+
+        <div v-if="showSuccess" class="success-message">
+            Жалоба успешно отправлена!
+        </div>
+    </div>
+
+    <script>
+        const { createApp } = Vue;
+        
+        createApp({
+            data() {
+                return {
+                    csrfToken: document.querySelector('input[name="csrfmiddlewaretoken"]').value,
+                    formData: {
+                        email: '',
+                        name: '',
+                        text: ''
+                    },
+                    showSuccess: false
+                }
+            },
+            methods: {
+                async submitComplaint() {
+                    try {
+                        const response = await axios.post(
+                            window.location.href,
+                            this.formData,
+                            {
+                                headers: {
+                                    'X-CSRFToken': this.csrfToken,
+                                    'Content-Type': 'application/json'
+                                }
+                            }
+                        );
+                        
+                        if (response.data.success) {
+                            this.showSuccess = true;
+                            this.formData = { email: '', name: '', text: '' };
+                            setTimeout(() => this.showSuccess = false, 3000);
+                        } else {
+                            throw new Error(response.data.message || 'Ошибка при отправке');
+                        }
+                    } catch (error) {
+                        console.error('Ошибка при отправке:', error);
+                        alert(error.response?.data?.message || 'Произошла ошибка при отправке жалобы. Пожалуйста, попробуйте снова.');
+                    }
+                }
+            }
+        }).mount('#app');
+    </script>
 </body>
 </html>

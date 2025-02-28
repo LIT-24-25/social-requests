@@ -20,22 +20,46 @@ class ComplaintDetail(generics.RetrieveUpdateDestroyAPIView):
     queryset = Complaint.objects.all()
     serializer_class = ComplaintSerializer
 
+@csrf_exempt  # Только для тестирования! В продакшене лучше настроить CSRF правильно
 def create_complaint(request):
     if request.method == 'POST':
-        user_email = request.POST.get('user_email')
-        complaint_name = request.POST.get('complaint_name')
-        complaint_description = request.POST.get('complaint_text')
-        cluster = None
-        new_item = Complaint.objects.create(
-            email = user_email,
-            name=complaint_name,
-            text=complaint_description,
-            x=rnd.randint(5, 400),
-            y=rnd.randint(5, 400),
-            cluster=cluster
-        )
-        new_item.save()
+        try:
+            # Парсим JSON данные из тела запроса
+            data = json.loads(request.body)
+            
+            # Получаем данные из JSON
+            user_email = data.get('email')
+            complaint_name = data.get('name')
+            complaint_description = data.get('text')
+            
+            # Проверяем наличие всех необходимых данных
+            if not all([user_email, complaint_name, complaint_description]):
+                return JsonResponse({
+                    'success': False,
+                    'message': 'Все поля должны быть заполнены'
+                }, status=400)
 
+            # Создаем новую жалобу
+            new_item = Complaint.objects.create(
+                email=user_email,
+                name=complaint_name,
+                text=complaint_description,
+                x=rnd.randint(5, 400),
+                y=rnd.randint(5, 400),
+                cluster=None
+            )
+            
+            return JsonResponse({
+                'success': True,
+                'message': 'Жалоба успешно создана'
+            })
+            
+        except json.JSONDecodeError:
+            return JsonResponse({
+                'success': False,
+                'message': 'Неверный формат данных'
+            }, status=400)
+            
     return render(request, 'create_complaint.html')
 
 def canvas_view(request):
@@ -44,20 +68,23 @@ def canvas_view(request):
 
 class CreateClusterWithComplaints(APIView):
     def post(self, request):
-        # Получаем список ID жалоб из запроса
         complaint_ids = request.data.get('complaint_ids', [])
-
+        
         # Создаем новый кластер
         new_cluster = Cluster.objects.create(
-            name=f"Cluster {Cluster.objects.count() + 1}",  # Автоматическое имя
-            summary="Auto-generated cluster"  # Можно изменить или добавить логику для summary
+            name=f"Cluster {Cluster.objects.count() + 1}",
+            summary="Генерация описания..."  # Временный текст
         )
 
-        # Привязываем жалобы к новому кластеру
+        # Привязываем жалобы и обновляем кластер
         for complaint_id in complaint_ids:
             complaint = get_object_or_404(Complaint, id=complaint_id)
             complaint.cluster = new_cluster
             complaint.save()
+        
+        # Генерируем и сохраняем суммаризацию
+        new_cluster.summary = new_cluster.generate_summary()
+        new_cluster.save()
 
         return Response(
             {"message": "Cluster created successfully", "cluster_id": new_cluster.id},

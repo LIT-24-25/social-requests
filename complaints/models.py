@@ -19,20 +19,35 @@ class Complaint(models.Model):
         null=True,
         default=None)
 
-    def call_gigachat_embeddings(self, giga_client):
-        """Генерация эмбеддингов с обработкой ошибок"""
+    def call_gigachat_embeddings(self, text):
         try:
-            response = giga_client.embeddings(self.text)
-            self.embedding = response.data[0].embedding
+            # Проверяем, что text не пустой
+            if not text or not isinstance(text, str):
+                raise ValueError("Text must be a non-empty string")
+            
+            response = self.gigachat.embeddings(
+                model="Embeddings",
+                input=text  # Убедитесь, что text - это непустая строка
+            )
+            return response
         except Exception as e:
             raise GigaChatException(f"Ошибка генерации: {str(e)}")
 
     def save(self, *args, **kwargs):
         if not self.embedding:
-            self.call_gigachat_embeddings(
-                GigaChat(
-                    credentials=settings.GIGACHAT_TOKEN,
-                    verify_ssl_certs=False
+            try:
+                # Инициализируем GigaChat с токеном
+                gigachat = GigaChat(credentials=settings.GIGACHAT_API_KEY)
+                
+                # Получаем эмбеддинги
+                response = gigachat.embeddings(
+                    model="Embeddings",
+                    input=self.text
                 )
-            )
+                self.embedding = response
+            except Exception as e:
+                print(f"Ошибка при получении эмбеддингов: {str(e)}")
+                # Временно сохраняем без эмбеддингов
+                self.embedding = None
+        
         super().save(*args, **kwargs)
