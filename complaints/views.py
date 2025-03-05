@@ -69,6 +69,7 @@ def canvas_view(request):
 class CreateClusterWithComplaints(APIView):
     def post(self, request):
         complaint_ids = request.data.get('complaint_ids', [])
+        model = request.data.get('model')
         
         # Создаем новый кластер
         new_cluster = Cluster.objects.create(
@@ -83,7 +84,7 @@ class CreateClusterWithComplaints(APIView):
             complaint.save()
         
         # Генерируем и сохраняем суммаризацию
-        new_cluster.summary = new_cluster.generate_summary()
+        new_cluster.summary = new_cluster.generate_summary(model)
         new_cluster.save()
 
         return Response(

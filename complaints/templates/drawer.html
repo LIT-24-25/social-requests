@@ -84,6 +84,15 @@
                 <input type="range" id="stepRange" v-model.number="step" min="1" max="1000">
                 <button @click="applyTsne">Apply t-SNE</button>
             </div>
+            <div class="mb-3">
+                <select class="form-select mb-3" v-model="model">
+                    <option v-for="option in availableModels"
+                            :key="option"
+                            :value="option">
+                        [[ option ]]
+                    </option>
+                </select>
+            </div>
         </div>
     </div>
 
@@ -138,7 +147,9 @@
                     step: 500,
                     currentPoint: {},
                     pointRadius: 7,
-                    ctx: null
+                    ctx: null,
+                    model: "GigaChat",
+                    availableModels: ['GigaChat', 'QwenAI']
                 }
             },
             mounted() {
@@ -254,7 +265,7 @@
                         const response = await fetch('/api/create-cluster/', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ complaint_ids: selectedIds })
+                            body: JSON.stringify({ complaint_ids: selectedIds, model: this.model })
                         });
 
                         if (response.ok) {
@@ -278,7 +289,7 @@
                         const response = await fetch('/api/apply-tsne/', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ step: this.step })
+                            body: JSON.stringify({step: this.step})
                         });
 
                         if (response.ok) {

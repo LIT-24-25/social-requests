@@ -2,6 +2,7 @@ from django.db import models
 from gigachat import GigaChat
 from gigachat.exceptions import GigaChatException
 from django.conf import settings
+from .mymodels import call_gigachat, call_qwen
 
 class Cluster(models.Model):
     name = models.CharField(max_length=100, default='Unnamed Cluster')
@@ -9,7 +10,7 @@ class Cluster(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
-    def generate_summary(self):
+    def generate_summary(self, model):
         try:
             # Перемещаем импорт внутрь метода для избежания циклической зависимости
             from complaints.models import Complaint
@@ -26,10 +27,11 @@ class Cluster(models.Model):
                        {combined_text}
                        
                        Краткое обобщение (1-3 предложения):"""
-
-            with GigaChat(credentials=settings.GIGACHAT_TOKEN, verify_ssl_certs=False) as giga:
-                response = giga.chat(prompt)
-                return response.choices[0].message.content
+            if model=="GigaChat":
+                response = call_gigachat(prompt)
+            else:
+                response = call_qwen(prompt)
+            return response
                 
         except GigaChatException as e:
             print(f"Ошибка GigaChat: {str(e)}")
