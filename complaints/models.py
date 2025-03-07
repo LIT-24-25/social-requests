@@ -2,6 +2,7 @@ from django.db import models
 from clusters.models import Cluster
 from gigachat import GigaChat
 from gigachat.exceptions import GigaChatException
+from django.conf import settings
 
 class Complaint(models.Model):
     email = models.CharField(max_length=100, default='No Email')
@@ -12,7 +13,6 @@ class Complaint(models.Model):
     embedding = models.JSONField(default=None, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-
     cluster = models.ForeignKey(
         Cluster,
         on_delete=models.CASCADE,

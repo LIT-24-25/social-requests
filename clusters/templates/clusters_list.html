@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cluster List</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .cluster-list {
+            margin-bottom: 20px;
+        }
+        .cluster-item {
+            cursor: pointer;
+            padding: 10px;
+            border: 1px solid #ccc;
+            margin-bottom: 5px;
+            background-color: #f9f9f9;
+        }
+        .cluster-item:hover {
+            background-color: #e9e9e9;
+        }
+        .complaint-list {
+            margin-top: 20px;
+        }
+        .complaint-item {
+            padding: 10px;
+            border: 1px solid #ddd;
+            margin-bottom: 5px;
+            background-color: #f1f1f1;
+        }
+    </style>
+</head>
+<body>
+    <h1>Cluster Information</h1>
+
+    <div>
+        <strong>Total Clusters:</strong> {{ total_clusters }}
+    </div>
+
+    <div class="cluster-list">
+        <h2>Clusters:</h2>
+        {% for cluster in clusters %}
+            <div class="cluster-item" data-cluster-id="{{ cluster.id }}">
+                {{ cluster.name }}
+            </div>
+        {% endfor %}
+    </div>
+
+    <div id="cluster-details" style="display: none;">
+        <h2>Cluster Details</h2>
+        <div id="cluster-summary"></div>
+        <div class="complaint-list" id="complaint-list"></div>
+    </div>
+
+    <script>
+        // Обработчик клика по кластеру
+        document.querySelectorAll('.cluster-item').forEach(item => {
+            item.addEventListener('click', async function() {
+                const clusterId = this.getAttribute('data-cluster-id');
+
+                // Загружаем данные о кластере и жалобах
+                try {
+                    const response = await fetch(`/clusters/${clusterId}/`);
+                    const data = await response.json();
+
+                    // Показываем информацию о кластере
+                    document.getElementById('cluster-summary').innerText = `Summary: ${data.summary}`;
+
+                    // Показываем список жалоб
+                    const complaintList = document.getElementById('complaint-list');
+                    complaintList.innerHTML = data.complaints.map(complaint => `
+                        <div class="complaint-item">
+                            <strong>${complaint.name}:</strong> ${complaint.text}
+                        </div>
+                    `).join('');
+
+                    // Показываем блок с деталями
+                    document.getElementById('cluster-details').style.display = 'block';
+                } catch (error) {
+                    console.error('Error fetching cluster details:', error);
+                }
+            });
+        });
+    </script>
+</body>
+</html>

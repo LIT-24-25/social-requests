@@ -34,6 +34,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         self._validate_environment()
+        Complaint.objects.all().delete()
 
         csv_path = options['csv_path']
         chunk_size = options['chunk_size']
@@ -82,7 +83,6 @@ class Command(BaseCommand):
 
             for chunk in chunks:
                 self._process_batch(chunk, giga_client, progress_bar)
-
         self.stdout.write(self.style.SUCCESS(
             f"Successfully processed {progress_bar.n} complaints"
         ))

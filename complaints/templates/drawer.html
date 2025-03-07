@@ -40,10 +40,24 @@
             font-size: 16px;
             cursor: pointer;
         }
+        .step-control {
+            margin-top: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .step-control label {
+            font-family: Arial, sans-serif;
+            font-size: 16px;
+            color: #333;
+        }
+        .step-control input[type="range"] {
+            width: 100%;
+        }
     </style>
 </head>
 <body>
-    <canvas id="canvas" width="600" height="500"></canvas>
+    <canvas id="canvas" width="500" height="500"></canvas>
     <div class="info">
         <div class="text">
             <div id="email">Email: example@example.com</div>
@@ -53,21 +67,25 @@
         </div>
         <div class="buttons">
             <button id="sendSelected">Отправить выделенные</button>
-            <button id="resetSelection">Сбросить выделение</button> <!-- Новая кнопка -->
+            <button id="resetSelection">Сбросить выделение</button>
+        </div>
+        <div class="step-control">
+            <label for="stepRange">Step (0-1000): <span id="stepValue">500</span></label>
+            <input type="range" id="stepRange" min="0" max="1000" value="500">
+            <button id="applyTsne">Apply t-SNE</button>
         </div>
     </div>
-
-
     <script>
         class Point {
-            constructor(x, y, info, email, name, cluster) {
+            constructor(id, x, y, info, email, name, cluster) {
+                this.id = id;
                 this.x = x;
                 this.y = y;
                 this.info = info;
                 this.email = email;
                 this.name = name;
                 this.cluster = cluster;
-                this.selected = false; // Добавляем флаг выделения
+                this.selected = false;
             }
 
             draw(ctx, pointRadius) {
@@ -96,18 +114,26 @@
 
         const canvas = document.getElementById('canvas');
         const ctx = canvas.getContext('2d');
-        const pointRadius = 7;
+        const pointRadius = 2;
         let points = [];
         let isDrawing = false;
         let startX, startY;
         let selectedPoints = [];
+        let step = 500; // Начальное значение step
 
-        // Функция для загрузки точек с сервера
         async function fetchPoints() {
             try {
                 const response = await fetch('/api/complaints');
                 const data = await response.json();
-                points = data.map(point => new Point(point.x, point.y, point.text, point.email, point.name, point.cluster));
+                points = data.map(point => new Point(
+                    point.id,
+                    point.x*10 + 250,
+                    point.y*10 + 250,
+                    point.text,
+                    point.email,
+                    point.name,
+                    point.cluster
+                ));
                 drawPoints();
             } catch (error) {
                 console.error('Ошибка при загрузке точек:', error);
@@ -195,42 +221,83 @@
         });
 
         // Обработчик кнопки "Отправить выделенные"
-        document.getElementById('sendSelected').addEventListener('click', function() {
-            selectedPoints = points.filter(point => point.selected);
-            const selectedIds = selectedPoints.map(point => point.info); // Предположим, что info — это ID
+        document.getElementById('sendSelected').addEventListener('click', async function() {
+            // Собираем ID выделенных жалоб
+            const selectedComplaintIds = points
+                .filter(point => point.selected)
+                .map(point => point.id);  // Предполагаем, что у точек есть ID
 
-            // Отправляем данные на сервер
-            fetch('/api/selected_complaints/', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ ids: selectedIds }),
-            })
-            .then(response => response.json())
-            .then(data => {
-                console.log('Выделенные жалобы отправлены:', data);
-            })
-            .catch(error => {
-                console.error('Ошибка при отправке выделенных жалоб:', error);
-            });
+            if (selectedComplaintIds.length === 0) {
+                alert("Выберите хотя бы одну жалобу!");
+                return;
+            }
+
+            try {
+                // Отправляем данные на сервер
+                const response = await fetch('/api/create-cluster/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',  // Убрали 'X-CSRFToken'
+                    },
+                    body: JSON.stringify({ complaint_ids: selectedComplaintIds })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    alert(`Кластер успешно создан! ID: ${data.cluster_id}`);
+                } else {
+                    alert("Ошибка при создании кластера");
+                }
+            } catch (error) {
+                console.error('Ошибка:', error);
+                alert("Произошла ошибка при отправке данных");
+            }
         });
 
-        // Обработчик кнопки "Сбросить выделение"
+        // Снимаем выделение всех точек
         document.getElementById('resetSelection').addEventListener('click', function() {
-            // Снимаем выделение со всех точек
             points.forEach(point => {
                 point.selected = false;
             });
 
-            // Очищаем информацию в блоке .info
-            document.getElementById('email').innerText = 'Email:';
-            document.getElementById('cluster').innerText = 'Cluster:';
-            document.getElementById('name').innerText = 'Name:';
-            document.getElementById('text').innerText = 'Text:';
-
-            // Перерисовываем canvas
             drawPoints();
+
+            document.getElementById('email').innerText = 'Email: example@example.com';
+            document.getElementById('cluster').innerText = 'Cluster: Example Cluster';
+            document.getElementById('name').innerText = 'Name: Example Name';
+            document.getElementById('text').innerText = 'Text: Example Text';
+        });
+
+        const stepRange = document.getElementById('stepRange');
+        const stepValue = document.getElementById('stepValue');
+        stepRange.addEventListener('input', function() {
+            step = parseInt(stepRange.value);
+            stepValue.innerText = step;
+        });
+
+        // Обработчик кнопки "Apply t-SNE"
+        document.getElementById('applyTsne').addEventListener('click', async function() {
+            const step = parseInt(document.getElementById('stepRange').value);
+
+            try {
+                // Отправляем запрос на сервер
+                const response = await fetch('/api/apply-tsne/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ step: step })
+                });
+
+                if (response.ok) {
+                    alert("Функция apply_tsne вызвана успешно!");
+                } else {
+                    alert("Ошибка при вызове apply_tsne");
+                }
+            } catch (error) {
+                console.error('Ошибка:', error);
+                alert("Произошла ошибка при отправке запроса");
+            }
         });
 
         fetchPoints();
