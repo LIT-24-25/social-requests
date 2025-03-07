@@ -63,6 +63,27 @@
         .step-control input[type="range"] {
             width: 100%;
         }
+        .zoom-control {
+            margin-top: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .zoom-control label {
+            font-family: Arial, sans-serif;
+            font-size: 16px;
+            color: #333;
+        }
+        .zoom-buttons {
+            margin-top: 10px;
+            display: flex;
+            gap: 10px;
+        }
+        .zoom-buttons button {
+            padding: 5px 10px;
+            font-size: 16px;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
@@ -83,6 +104,23 @@
                 <label for="stepRange">Step (1 - 1000): [[ step ]]</label>
                 <input type="range" id="stepRange" v-model.number="step" min="1" max="1000">
                 <button @click="applyTsne">Apply t-SNE</button>
+            </div>
+            <div class="mb-3">
+                <select class="form-select mb-3" v-model="model">
+                    <option v-for="option in availableModels"
+                            :key="option"
+                            :value="option">
+                        [[ option ]]
+                    </option>
+                </select>
+            </div>
+            <div class="zoom-control">
+                <label>Zoom: [[ (scale * 100).toFixed(0) ]]%</label>
+                <div class="zoom-buttons">
+                    <button @click="zoom(1.2)">+</button>
+                    <button @click="zoom(0.8)">-</button>
+                    <button @click="resetView">Reset View</button>
+                </div>
             </div>
         </div>
     </div>
@@ -138,7 +176,15 @@
                     step: 500,
                     currentPoint: {},
                     pointRadius: 7,
-                    ctx: null
+                    ctx: null,
+                    model: "GigaChat",
+                    availableModels: ['GigaChat', 'QwenAI'],
+                    scale: 1,
+                    offsetX: 0,
+                    offsetY: 0,
+                    isPanning: false,
+                    lastPanX: 0,
+                    lastPanY: 0
                 }
             },
             mounted() {
@@ -166,19 +212,73 @@
                     }
                 },
                 drawPoints() {
-                    this.ctx.clearRect(0, 0, this.$refs.canvas.width, this.$refs.canvas.height);
-                    this.points.forEach(point => point.draw(this.ctx, this.pointRadius));
+                    const canvas = this.$refs.canvas;
+                    this.ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    
+                    this.ctx.save();
+                    this.ctx.translate(this.offsetX, this.offsetY);
+                    this.ctx.scale(this.scale, this.scale);
+                    
+                    this.points.forEach(point => {
+                        this.ctx.beginPath();
+                        this.ctx.arc(point.x, point.y, this.pointRadius / this.scale, 0, Math.PI * 2);
+                        this.ctx.fillStyle = point.selected ? 'red' : 'black';
+                        this.ctx.fill();
+                        this.ctx.closePath();
+                    });
+                    
+                    this.ctx.restore();
+                },
+                screenToCanvas(screenX, screenY) {
+                    return {
+                        x: (screenX - this.offsetX) / this.scale,
+                        y: (screenY - this.offsetY) / this.scale
+                    };
+                },
+                zoom(factor, centerX, centerY) {
+                    const oldScale = this.scale;
+                    this.scale *= factor;
+                    
+                    this.scale = Math.max(0.1, Math.min(10, this.scale));
+                    
+                    if (centerX !== undefined && centerY !== undefined) {
+                        const scaleFactor = this.scale / oldScale;
+                        this.offsetX = centerX - (centerX - this.offsetX) * scaleFactor;
+                        this.offsetY = centerY - (centerY - this.offsetY) * scaleFactor;
+                    }
+                    
+                    this.drawPoints();
+                },
+                resetView() {
+                    this.scale = 1;
+                    this.offsetX = 0;
+                    this.offsetY = 0;
+                    this.drawPoints();
                 },
                 setupCanvasEvents() {
                     const canvas = this.$refs.canvas;
                     
-                    canvas.addEventListener('click', (e) => {
+                    canvas.addEventListener('wheel', (e) => {
+                        e.preventDefault();
                         const rect = canvas.getBoundingClientRect();
-                        const x = e.clientX - rect.left;
-                        const y = e.clientY - rect.top;
-
+                        const mouseX = e.clientX - rect.left;
+                        const mouseY = e.clientY - rect.top;
+                        
+                        const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
+                        this.zoom(zoomFactor, mouseX, mouseY);
+                    });
+                    
+                    canvas.addEventListener('click', (e) => {
+                        if (this.isPanning) return;
+                        
+                        const rect = canvas.getBoundingClientRect();
+                        const screenX = e.clientX - rect.left;
+                        const screenY = e.clientY - rect.top;
+                        
+                        const canvasPoint = this.screenToCanvas(screenX, screenY);
+                        
                         this.points.forEach(point => {
-                            if (point.isClicked(x, y, this.pointRadius)) {
+                            if (point.isClicked(canvasPoint.x, canvasPoint.y, this.pointRadius / this.scale)) {
                                 point.selected = !point.selected;
                                 this.currentPoint = { 
                                     email: point.email,
@@ -190,54 +290,101 @@
                         });
                         this.drawPoints();
                     });
-
+                    
+                    canvas.addEventListener('contextmenu', (e) => {
+                        e.preventDefault();
+                    });
+                    
                     canvas.addEventListener('mousedown', (e) => {
                         const rect = canvas.getBoundingClientRect();
-                        this.startX = e.clientX - rect.left;
-                        this.startY = e.clientY - rect.top;
-                        this.isDrawing = true;
+                        const screenX = e.clientX - rect.left;
+                        const screenY = e.clientY - rect.top;
+                        
+                        if (e.button === 2) {
+                            this.isPanning = true;
+                            this.lastPanX = screenX;
+                            this.lastPanY = screenY;
+                            canvas.style.cursor = 'grabbing';
+                        } else {
+                            const canvasPoint = this.screenToCanvas(screenX, screenY);
+                            this.startX = canvasPoint.x;
+                            this.startY = canvasPoint.y;
+                            this.isDrawing = true;
+                        }
                     });
-
+                    
                     canvas.addEventListener('mousemove', (e) => {
-                        if (!this.isDrawing) return;
-
                         const rect = canvas.getBoundingClientRect();
-                        const currentX = e.clientX - rect.left;
-                        const currentY = e.clientY - rect.top;
-
-                        // Очищаем canvas и рисуем прямоугольник выделения
+                        const screenX = e.clientX - rect.left;
+                        const screenY = e.clientY - rect.top;
+                        
+                        if (this.isPanning) {
+                            this.offsetX += (screenX - this.lastPanX);
+                            this.offsetY += (screenY - this.lastPanY);
+                            this.lastPanX = screenX;
+                            this.lastPanY = screenY;
+                            this.drawPoints();
+                            return;
+                        }
+                        
+                        if (!this.isDrawing) return;
+                        
+                        const canvasPoint = this.screenToCanvas(screenX, screenY);
+                        
                         this.drawPoints();
+                        this.ctx.save();
+                        this.ctx.translate(this.offsetX, this.offsetY);
+                        this.ctx.scale(this.scale, this.scale);
+                        
                         this.ctx.beginPath();
-                        this.ctx.rect(this.startX, this.startY, currentX - this.startX, currentY - this.startY);
+                        this.ctx.rect(
+                            this.startX, 
+                            this.startY, 
+                            canvasPoint.x - this.startX, 
+                            canvasPoint.y - this.startY
+                        );
                         this.ctx.strokeStyle = 'blue';
                         this.ctx.stroke();
                         this.ctx.closePath();
+                        
+                        this.ctx.restore();
                     });
-
+                    
                     canvas.addEventListener('mouseup', (e) => {
+                        if (this.isPanning) {
+                            this.isPanning = false;
+                            canvas.style.cursor = 'default';
+                            return;
+                        }
+                        
                         if (!this.isDrawing) return;
-
+                        
                         const rect = canvas.getBoundingClientRect();
-                        const endX = e.clientX - rect.left;
-                        const endY = e.clientY - rect.top;
-
-                        // Определяем координаты прямоугольника
+                        const screenX = e.clientX - rect.left;
+                        const screenY = e.clientY - rect.top;
+                        const canvasPoint = this.screenToCanvas(screenX, screenY);
+                        
                         const selectionRect = {
-                            x: Math.min(this.startX, endX),
-                            y: Math.min(this.startY, endY),
-                            width: Math.abs(endX - this.startX),
-                            height: Math.abs(endY - this.startY),
+                            x: Math.min(this.startX, canvasPoint.x),
+                            y: Math.min(this.startY, canvasPoint.y),
+                            width: Math.abs(canvasPoint.x - this.startX),
+                            height: Math.abs(canvasPoint.y - this.startY)
                         };
-
-                        // Выделяем точки, попавшие в прямоугольник
+                        
                         this.points.forEach(point => {
                             if (point.isInRect(selectionRect)) {
                                 point.selected = true;
                             }
                         });
-
+                        
                         this.isDrawing = false;
                         this.drawPoints();
+                    });
+                    
+                    canvas.addEventListener('mouseleave', () => {
+                        this.isPanning = false;
+                        this.isDrawing = false;
+                        canvas.style.cursor = 'default';
                     });
                 },
                 async sendSelected() {
@@ -254,7 +401,7 @@
                         const response = await fetch('/api/create-cluster/', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ complaint_ids: selectedIds })
+                            body: JSON.stringify({ complaint_ids: selectedIds, model: this.model })
                         });
 
                         if (response.ok) {
@@ -278,7 +425,7 @@
                         const response = await fetch('/api/apply-tsne/', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ step: this.step })
+                            body: JSON.stringify({step: this.step})
                         });
 
                         if (response.ok) {
