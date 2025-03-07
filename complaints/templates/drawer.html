@@ -3,24 +3,33 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Canvas</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <style>
         body {
-            display: flex;
-            align-items: flex-start;
             padding: 20px;
         }
+        #app {
+            display: flex;
+            flex-direction: row;
+            align-items: flex-start;
+            gap: 20px;
+        }
         #canvas {
-            border: 1px solid black;
-            margin-right: 20px;
+            border: 2px solid #333;
         }
         .info {
             display: flex;
             flex-direction: column;
+            max-width: 300px;
+            flex-shrink: 0; 
         }
         .text {
             display: flex;
             flex-direction: column;
             justify-content: flex-start;
+            background-color: #f5f5f5;
+            padding: 15px;
+            border-radius: 5px;
         }
         .text div {
             margin-top: 10px;
@@ -57,25 +66,30 @@
     </style>
 </head>
 <body>
-    <canvas id="canvas" width="500" height="500"></canvas>
-    <div class="info">
-        <div class="text">
-            <div id="email">Email: example@example.com</div>
-            <div id="cluster">Cluster: Example Cluster</div>
-            <div id="name">Name: Example Name</div>
-            <div id="text">Text: Example Text</div>
-        </div>
-        <div class="buttons">
-            <button id="sendSelected">Отправить выделенные</button>
-            <button id="resetSelection">Сбросить выделение</button>
-        </div>
-        <div class="step-control">
-            <label for="stepRange">Step (0-1000): <span id="stepValue">500</span></label>
-            <input type="range" id="stepRange" min="0" max="1000" value="500">
-            <button id="applyTsne">Apply t-SNE</button>
+    <div id="app">
+        <canvas ref="canvas" id="canvas" width="600" height="500"></canvas>
+        <div class="info">
+            <div class="text">
+                <div>Email: [[ currentPoint.email ]]</div>
+                <div>Cluster: [[ currentPoint.cluster ]]</div>
+                <div>Name: [[ currentPoint.name ]]</div>
+                <div>Text: [[ currentPoint.info ]]</div>
+            </div>
+            <div class="buttons">
+                <button @click="sendSelected">Отправить выделенные</button>
+                <button @click="resetSelection">Сбросить выделение</button>
+            </div>
+            <div class="step-control">
+                <label for="stepRange">Step (1 - 1000): [[ step ]]</label>
+                <input type="range" id="stepRange" v-model.number="step" min="1" max="1000">
+                <button @click="applyTsne">Apply t-SNE</button>
+            </div>
         </div>
     </div>
+
     <script>
+        const { createApp } = Vue;
+
         class Point {
             constructor(id, x, y, info, email, name, cluster) {
                 this.id = id;
@@ -112,195 +126,173 @@
             }
         }
 
-        const canvas = document.getElementById('canvas');
-        const ctx = canvas.getContext('2d');
-        const pointRadius = 2;
-        let points = [];
-        let isDrawing = false;
-        let startX, startY;
-        let selectedPoints = [];
-        let step = 500; // Начальное значение step
-
-        async function fetchPoints() {
-            try {
-                const response = await fetch('/api/complaints');
-                const data = await response.json();
-                points = data.map(point => new Point(
-                    point.id,
-                    point.x*10 + 250,
-                    point.y*10 + 250,
-                    point.text,
-                    point.email,
-                    point.name,
-                    point.cluster
-                ));
-                drawPoints();
-            } catch (error) {
-                console.error('Ошибка при загрузке точек:', error);
-            }
-        }
-
-        // Функция для отрисовки всех точек
-        function drawPoints() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            points.forEach(point => point.draw(ctx, pointRadius));
-        }
-
-        // Обработчик клика по точке
-        canvas.addEventListener('click', function(event) {
-            const rect = canvas.getBoundingClientRect();
-            const x = event.clientX - rect.left;
-            const y = event.clientY - rect.top;
-
-            let clickedOnPoint = false;
-
-            points.forEach(point => {
-                if (point.isClicked(x, y, pointRadius)) {
-                    point.selected = !point.selected; // Переключаем выделение
-                    document.getElementById('email').innerText = `Email: ${point.email}`;
-                    document.getElementById('cluster').innerText = `Cluster: ${point.cluster}`;
-                    document.getElementById('name').innerText = `Name: ${point.name}`;
-                    document.getElementById('text').innerText = `Text: ${point.info}`;
-                    clickedOnPoint = true;
+        createApp({
+            delimiters: ['[[', ']]'],
+            data() {
+                return {
+                    points: [],
+                    isDrawing: false,
+                    startX: 0,
+                    startY: 0,
+                    selectedPoints: [],
+                    step: 500,
+                    currentPoint: {},
+                    pointRadius: 7,
+                    ctx: null
                 }
-            });
+            },
+            mounted() {
+                this.ctx = this.$refs.canvas.getContext('2d');
+                this.setupCanvasEvents();
+                this.fetchPoints();
+            },
+            methods: {
+                async fetchPoints() {
+                    try {
+                        const response = await fetch('/api/complaints');
+                        const data = await response.json();
+                        this.points = data.map(point => new Point(
+                            point.id,
+                            point.x,
+                            point.y,
+                            point.text,
+                            point.email,
+                            point.name,
+                            point.cluster
+                        ));
+                        this.drawPoints();
+                    } catch (error) {
+                        console.error('Ошибка при загрузке точек:', error);
+                    }
+                },
+                drawPoints() {
+                    this.ctx.clearRect(0, 0, this.$refs.canvas.width, this.$refs.canvas.height);
+                    this.points.forEach(point => point.draw(this.ctx, this.pointRadius));
+                },
+                setupCanvasEvents() {
+                    const canvas = this.$refs.canvas;
+                    
+                    canvas.addEventListener('click', (e) => {
+                        const rect = canvas.getBoundingClientRect();
+                        const x = e.clientX - rect.left;
+                        const y = e.clientY - rect.top;
 
-            drawPoints();
-        });
+                        this.points.forEach(point => {
+                            if (point.isClicked(x, y, this.pointRadius)) {
+                                point.selected = !point.selected;
+                                this.currentPoint = { 
+                                    email: point.email,
+                                    cluster: point.cluster,
+                                    name: point.name,
+                                    info: point.info
+                                };
+                            }
+                        });
+                        this.drawPoints();
+                    });
 
-        // Обработчик начала выделения
-        canvas.addEventListener('mousedown', function(event) {
-            const rect = canvas.getBoundingClientRect();
-            startX = event.clientX - rect.left;
-            startY = event.clientY - rect.top;
-            isDrawing = true;
-        });
+                    canvas.addEventListener('mousedown', (e) => {
+                        const rect = canvas.getBoundingClientRect();
+                        this.startX = e.clientX - rect.left;
+                        this.startY = e.clientY - rect.top;
+                        this.isDrawing = true;
+                    });
 
-        // Обработчик движения мыши при выделении
-        canvas.addEventListener('mousemove', function(event) {
-            if (!isDrawing) return;
+                    canvas.addEventListener('mousemove', (e) => {
+                        if (!this.isDrawing) return;
 
-            const rect = canvas.getBoundingClientRect();
-            const currentX = event.clientX - rect.left;
-            const currentY = event.clientY - rect.top;
+                        const rect = canvas.getBoundingClientRect();
+                        const currentX = e.clientX - rect.left;
+                        const currentY = e.clientY - rect.top;
 
-            // Очищаем canvas и рисуем прямоугольник выделения
-            drawPoints();
-            ctx.beginPath();
-            ctx.rect(startX, startY, currentX - startX, currentY - startY);
-            ctx.strokeStyle = 'blue';
-            ctx.stroke();
-            ctx.closePath();
-        });
+                        // Очищаем canvas и рисуем прямоугольник выделения
+                        this.drawPoints();
+                        this.ctx.beginPath();
+                        this.ctx.rect(this.startX, this.startY, currentX - this.startX, currentY - this.startY);
+                        this.ctx.strokeStyle = 'blue';
+                        this.ctx.stroke();
+                        this.ctx.closePath();
+                    });
 
-        // Обработчик окончания выделения
-        canvas.addEventListener('mouseup', function(event) {
-            if (!isDrawing) return;
+                    canvas.addEventListener('mouseup', (e) => {
+                        if (!this.isDrawing) return;
 
-            const rect = canvas.getBoundingClientRect();
-            const endX = event.clientX - rect.left;
-            const endY = event.clientY - rect.top;
+                        const rect = canvas.getBoundingClientRect();
+                        const endX = e.clientX - rect.left;
+                        const endY = e.clientY - rect.top;
 
-            // Определяем координаты прямоугольника
-            const selectionRect = {
-                x: Math.min(startX, endX),
-                y: Math.min(startY, endY),
-                width: Math.abs(endX - startX),
-                height: Math.abs(endY - startY),
-            };
+                        // Определяем координаты прямоугольника
+                        const selectionRect = {
+                            x: Math.min(this.startX, endX),
+                            y: Math.min(this.startY, endY),
+                            width: Math.abs(endX - this.startX),
+                            height: Math.abs(endY - this.startY),
+                        };
 
-            // Выделяем точки, попавшие в прямоугольник
-            points.forEach(point => {
-                if (point.isInRect(selectionRect)) {
-                    point.selected = true;
+                        // Выделяем точки, попавшие в прямоугольник
+                        this.points.forEach(point => {
+                            if (point.isInRect(selectionRect)) {
+                                point.selected = true;
+                            }
+                        });
+
+                        this.isDrawing = false;
+                        this.drawPoints();
+                    });
+                },
+                async sendSelected() {
+                    const selectedIds = this.points
+                        .filter(p => p.selected)
+                        .map(p => p.id);
+
+                    if (!selectedIds.length) {
+                        alert("Выберите хотя бы одну жалобу!");
+                        return;
+                    }
+
+                    try {
+                        const response = await fetch('/api/create-cluster/', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ complaint_ids: selectedIds })
+                        });
+
+                        if (response.ok) {
+                            const data = await response.json();
+                            alert(`Кластер успешно создан! ID: ${data.cluster_id}`);
+                        } else {
+                            alert("Ошибка при создании кластера");
+                        }
+                    } catch (error) {
+                        console.error('Ошибка:', error);
+                        alert("Произошла ошибка при отправке данных");
+                    }
+                },
+                resetSelection() {
+                    this.points.forEach(p => p.selected = false);
+                    this.currentPoint = {};
+                    this.drawPoints();
+                },
+                async applyTsne() {
+                    try {
+                        const response = await fetch('/api/apply-tsne/', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ step: this.step })
+                        });
+
+                        if (response.ok) {
+                            alert("Функция apply_tsne вызвана успешно!");
+                        } else {
+                            alert("Ошибка при вызове apply_tsne");
+                        }
+                    } catch (error) {
+                        console.error('Ошибка:', error);
+                        alert("Произошла ошибка при отправке запроса");
+                    }
                 }
-            });
-
-            isDrawing = false;
-            drawPoints();
-        });
-
-        // Обработчик кнопки "Отправить выделенные"
-        document.getElementById('sendSelected').addEventListener('click', async function() {
-            // Собираем ID выделенных жалоб
-            const selectedComplaintIds = points
-                .filter(point => point.selected)
-                .map(point => point.id);  // Предполагаем, что у точек есть ID
-
-            if (selectedComplaintIds.length === 0) {
-                alert("Выберите хотя бы одну жалобу!");
-                return;
             }
-
-            try {
-                // Отправляем данные на сервер
-                const response = await fetch('/api/create-cluster/', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',  // Убрали 'X-CSRFToken'
-                    },
-                    body: JSON.stringify({ complaint_ids: selectedComplaintIds })
-                });
-
-                if (response.ok) {
-                    const data = await response.json();
-                    alert(`Кластер успешно создан! ID: ${data.cluster_id}`);
-                } else {
-                    alert("Ошибка при создании кластера");
-                }
-            } catch (error) {
-                console.error('Ошибка:', error);
-                alert("Произошла ошибка при отправке данных");
-            }
-        });
-
-        // Снимаем выделение всех точек
-        document.getElementById('resetSelection').addEventListener('click', function() {
-            points.forEach(point => {
-                point.selected = false;
-            });
-
-            drawPoints();
-
-            document.getElementById('email').innerText = 'Email: example@example.com';
-            document.getElementById('cluster').innerText = 'Cluster: Example Cluster';
-            document.getElementById('name').innerText = 'Name: Example Name';
-            document.getElementById('text').innerText = 'Text: Example Text';
-        });
-
-        const stepRange = document.getElementById('stepRange');
-        const stepValue = document.getElementById('stepValue');
-        stepRange.addEventListener('input', function() {
-            step = parseInt(stepRange.value);
-            stepValue.innerText = step;
-        });
-
-        // Обработчик кнопки "Apply t-SNE"
-        document.getElementById('applyTsne').addEventListener('click', async function() {
-            const step = parseInt(document.getElementById('stepRange').value);
-
-            try {
-                // Отправляем запрос на сервер
-                const response = await fetch('/api/apply-tsne/', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ step: step })
-                });
-
-                if (response.ok) {
-                    alert("Функция apply_tsne вызвана успешно!");
-                } else {
-                    alert("Ошибка при вызове apply_tsne");
-                }
-            } catch (error) {
-                console.error('Ошибка:', error);
-                alert("Произошла ошибка при отправке запроса");
-            }
-        });
-
-        fetchPoints();
+        }).mount('#app');
     </script>
 </body>
 </html>
