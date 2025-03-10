@@ -22,7 +22,7 @@ class Command(BaseCommand):
         parser.add_argument(
             'csv_path',
             type=str,
-            default=r'C:\Users\new_p\Рабочий стол\project\data.csv',  # Путь по умолчанию
+            default=r'E:\Users\Alex\Downloads\test_data.csv',  # Путь по умолчанию
             help='Absolute path to CSV file with complaints data'
         )
         parser.add_argument(
@@ -117,5 +117,5 @@ class Command(BaseCommand):
             y=random.randint(0, 100))
 
         # Явный вызов генерации эмбеддингов
-        complaint.call_gigachat_embeddings(giga_client)
+        complaint.call_gigachat_embeddings(complaint.text, giga_client)
         return complaint
