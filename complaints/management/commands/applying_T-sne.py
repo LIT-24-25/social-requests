@@ -13,7 +13,7 @@ def calculate_tsne(embeddings, step=500):
     tsne = TSNE(
         n_components=2,
         perplexity=30,
-        n_iter=step,
+        max_iter=step,
         random_state=42,
         verbose=0
     )
@@ -73,6 +73,7 @@ class Command(BaseCommand):
         # Вычисляем t-SNE
         tsne_results = calculate_tsne(valid_embeddings, step)
 
+        print(Complaint.objects.order_by("id").last().x)
         # Обновляем записи батчами
         with tqdm(total=len(valid_indices), desc="Updating coordinates") as pbar:
             for i in range(0, len(valid_indices), batch_size):
@@ -84,5 +85,7 @@ class Command(BaseCommand):
 
                 Complaint.objects.bulk_update(batch, ['x', 'y'])
                 pbar.update(len(batch))
+        
+            print(Complaint.objects.order_by("id").last().x)
 
         logger.info("Successfully updated coordinates!")
