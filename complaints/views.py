@@ -11,6 +11,9 @@ from django.shortcuts import get_object_or_404
 from django.http import JsonResponse
 import json
 from django.views.decorators.csrf import csrf_exempt
+from django.core.management import call_command
+from django.http import HttpResponse
+
 
 class ComplaintListCreate(generics.ListCreateAPIView):
     queryset = Complaint.objects.all()
@@ -93,9 +96,8 @@ class CreateClusterWithComplaints(APIView):
         )
 
 def apply_tsne(step):
-    print(f"Функция apply_tsne вызвана с step = {step}")
-    # Здесь можно добавить логику, если нужно
-    pass
+    call_command('applying_T-sne', step=step)
+    return HttpResponse('')
 
 # API для вызова apply_tsne
 @csrf_exempt
