@@ -2,9 +2,9 @@ import requests
 import json
 from gigachat import GigaChat
 from gigachat.models import Chat, Messages, MessagesRole
+from clusters.instances import openrouter_token, gigachat_token
 
 def call_qwen(prompt):
-    openrouter_token = get_openrouter()
     response = requests.post(
         url="https://openrouter.ai/api/v1/chat/completions",
         headers={
@@ -41,16 +41,7 @@ def call_gigachat(prompt):
         ],
         temperature=0,
     )
-    with GigaChat(credentials=get_gigachat(), verify_ssl_certs=False) as giga:
+    with GigaChat(credentials=gigachat_token, verify_ssl_certs=False) as giga:
         response = giga.chat(payload)
         return response.choices[0].message.content
-
-def get_openrouter():
-    with open('config/openrouter.txt') as f:
-        token = f.readline().strip()
-        return token
-
-def get_gigachat():
-    with open('config/gigachat.txt') as f:
-        token = f.readline().strip()
-        return token
+    

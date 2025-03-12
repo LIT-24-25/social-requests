@@ -128,5 +128,3 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-
-GIGACHAT_TOKEN = 'M2ZmYTE0OTEtNmU2MS00MmViLTg0MmYtNWRmNDU0ZDk4ZjcwOjAyYTE1NjM2LWJhNWUtNGMwMS1hNjE2LTNhZjcwNTQxNDZhNw=='
