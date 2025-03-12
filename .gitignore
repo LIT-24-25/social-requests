@@ -1,7 +1,10 @@
 venv
+.venv
 .idea
 __pycache__
 .directory
 .pyc
 config/gigachat.txt
 config/openrouter.txt
+*.sqlite3
+.env

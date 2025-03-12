@@ -2,7 +2,7 @@ from django.db import models
 from clusters.models import Cluster
 from gigachat import GigaChat
 from gigachat.exceptions import GigaChatException
-from django.conf import settings
+from clusters.instances import gigachat_token
 
 class Complaint(models.Model):
     email = models.CharField(max_length=100, default='No Email')
@@ -34,7 +34,7 @@ class Complaint(models.Model):
         if not self.embedding:
             try:
                 # Инициализируем GigaChat с токеном
-                gigachat = GigaChat(credentials=settings.GIGACHAT_API_KEY)
+                gigachat = GigaChat(credentials=gigachat_token)
                 
                 # Получаем эмбеддинги
                 response = gigachat.embeddings(

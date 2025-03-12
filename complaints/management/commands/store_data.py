@@ -12,6 +12,7 @@ from tqdm import tqdm
 from gigachat import GigaChat
 from gigachat.exceptions import GigaChatException
 from complaints.models import Complaint
+from clusters.instances import gigachat_token
 
 class Command(BaseCommand):
     help = "Load complaint data from CSV file into database with embeddings generation"
@@ -22,7 +23,7 @@ class Command(BaseCommand):
         parser.add_argument(
             'csv_path',
             type=str,
-            default=r'E:\Users\Alex\Downloads\test_data.csv',  # Путь по умолчанию
+            default=os.path.join(os.getcwd(), 'test_data.csv'),  # Путь по умолчанию
             help='Absolute path to CSV file with complaints data'
         )
         parser.add_argument(
@@ -33,7 +34,6 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-        self._validate_environment()
         Complaint.objects.all().delete()
 
         csv_path = options['csv_path']
@@ -50,15 +50,10 @@ class Command(BaseCommand):
             self.stderr.write(self.style.ERROR(f"Fatal error: {str(e)}"))
             raise
 
-    def _validate_environment(self):
-        """Проверка необходимых настроек"""
-        if not hasattr(settings, 'GIGACHAT_TOKEN'):
-            raise ImproperlyConfigured("GIGACHAT_TOKEN not found in settings")
-
     def _init_gigachat(self):
         """Инициализация клиента GigaChat"""
         return GigaChat(
-            credentials=settings.GIGACHAT_TOKEN,
+            credentials=gigachat_token,
             verify_ssl_certs=False,
             timeout=30
         )
