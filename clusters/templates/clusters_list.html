@@ -27,6 +27,17 @@
             background-color: #e0e0e0;
             border-color: #999;
         }
+        .cluster-details {
+            padding: 15px;
+            background-color: #f5f5f5;
+            border: 1px solid #ddd;
+            margin-left: 20px;
+            margin-bottom: 10px;
+            display: none;
+        }
+        .cluster-details.visible {
+            display: block;
+        }
         .complaint-list {
             margin-top: 20px;
         }
@@ -43,7 +54,6 @@
 </head>
 <body>
     <script>
-        // Pass Django data to JavaScript
         window.djangoData = {
             totalClusters: {{ total_clusters }},
             clusters: [
@@ -66,25 +76,27 @@
 
         <div class="cluster-list">
             <h2>Clusters:</h2>
-            <div 
-                v-for="cluster in clusters" 
-                :key="cluster.id" 
-                class="cluster-item"
-                :class="{ active: selectedClusterId === cluster.id }"
-                @click="getClusterDetails(cluster.id)">
-                [[ cluster.name ]]
-            </div>
-        </div>
-
-        <div v-if="showDetails" id="cluster-details">
-            <h2>Cluster Details</h2>
-            <div id="cluster-summary">[[ clusterSummary ]]</div>
-            <div class="complaint-list">
+            <div v-for="cluster in clusters" :key="cluster.id">
                 <div 
-                    v-for="(complaint, index) in complaints" 
-                    :key="index" 
-                    class="complaint-item">
-                    <strong>[[ complaint.name ]]:</strong> [[ complaint.text ]]
+                    class="cluster-item"
+                    :class="{ active: selectedClusterId === cluster.id }"
+                    @click="toggleClusterDetails(cluster.id)">
+                    [[ cluster.name ]]
+                </div>
+                <div 
+                    class="cluster-details"
+                    :class="{ visible: selectedClusterId === cluster.id }">
+                    <div v-if="cluster.id === selectedClusterId && clusterDetails[cluster.id]">
+                        <div id="cluster-summary">[[ clusterDetails[cluster.id].summary ]]</div>
+                        <div class="complaint-list">
+                            <div 
+                                v-for="(complaint, index) in clusterDetails[cluster.id].complaints" 
+                                :key="index" 
+                                class="complaint-item">
+                                <strong>[[ complaint.name ]]:</strong> [[ complaint.text ]]
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -94,33 +106,39 @@
         // Initialize Vue app with data from Django
         new Vue({
             el: '#app',
-            delimiters: ['[[', ']]'], // Use different delimiters to avoid conflict with Django templates
+            delimiters: ['[[', ']]'],
             data: function() {
                 return {
-                    // Initialize with Django template data
                     totalClusters: window.djangoData.totalClusters,
                     clusters: window.djangoData.clusters,
-                    // Vue app state
                     selectedClusterId: null,
-                    clusterSummary: "",
-                    complaints: [],
-                    showDetails: false
+                    clusterDetails: {}
                 };
             },
             methods: {
-                async getClusterDetails(clusterId) {
-                    this.selectedClusterId = clusterId;
-                    
-                    try {
-                        const response = await fetch(`/clusters/${clusterId}/`);
-                        const data = await response.json();
+                async toggleClusterDetails(clusterId) {
+                    if (this.selectedClusterId === clusterId) {
+                        // If clicking the same cluster again, collapse it
+                        this.selectedClusterId = null;
+                    } else {
+                        // If clicking a different cluster, expand it and load its details
+                        this.selectedClusterId = clusterId;
                         
-                        // Update state with fetched data
-                        this.clusterSummary = `Summary: ${data.summary}`;
-                        this.complaints = data.complaints;
-                        this.showDetails = true;
-                    } catch (error) {
-                        console.error('Error fetching cluster details:', error);
+                        // Only fetch if we haven't loaded this cluster's details before
+                        if (!this.clusterDetails[clusterId]) {
+                            try {
+                                const response = await fetch(`/clusters/${clusterId}/`);
+                                const data = await response.json();
+                                
+                                // Store the fetched data
+                                this.$set(this.clusterDetails, clusterId, {
+                                    summary: `Summary: ${data.summary}`,
+                                    complaints: data.complaints
+                                });
+                            } catch (error) {
+                                console.error('Error fetching cluster details:', error);
+                            }
+                        }
                     }
                 }
             }
