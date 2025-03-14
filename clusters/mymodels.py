@@ -1,35 +1,33 @@
-import requests
 import json
 from gigachat import GigaChat
 from gigachat.models import Chat, Messages, MessagesRole
 from clusters.instances import openrouter_token, gigachat_token
+from openai import OpenAI
+from pydantic import BaseModel
+import instructor
+
+class OutputFormat(BaseModel):
+    summary: str
 
 def call_qwen(prompt):
-    response = requests.post(
-        url="https://openrouter.ai/api/v1/chat/completions",
-        headers={
-            "Authorization": f"Bearer {openrouter_token}",
-            "Content-Type": "application/json",
-        },
-        data=json.dumps({
-            "model": "qwen/qwen-plus",
-            "messages": [
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": prompt
-                        }
-                    ]
-                }
-            ],
+    client = instructor.from_openai(OpenAI(
+        base_url="https://openrouter.ai/api/v1",
+        api_key=openrouter_token,
+    ))
 
-        }, indent=2)
+    completion = client.chat.completions.create(
+        model="qwen/qwen-plus",
+        messages=[
+            {
+            "role": "user",
+            "content": prompt
+            }
+        ],
+        response_model=OutputFormat
     )
 
-    data = response.json()
-    return data['choices'][0]['message']['content']
+    data = completion.summary
+    return data
 
 def call_gigachat(prompt):
     payload = Chat(
@@ -44,4 +42,3 @@ def call_gigachat(prompt):
     with GigaChat(credentials=gigachat_token, verify_ssl_certs=False) as giga:
         response = giga.chat(payload)
         return response.choices[0].message.content
-    
