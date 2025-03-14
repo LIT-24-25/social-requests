@@ -13,6 +13,7 @@ import json
 from django.views.decorators.csrf import csrf_exempt
 from django.core.management import call_command
 from django.http import HttpResponse
+from django.core.serializers import serialize
 
 
 class ComplaintListCreate(generics.ListCreateAPIView):
@@ -23,7 +24,7 @@ class ComplaintDetail(generics.RetrieveUpdateDestroyAPIView):
     queryset = Complaint.objects.all()
     serializer_class = ComplaintSerializer
 
-@csrf_exempt  # Только для тестирования! В продакшене лучше настроить CSRF правильно
+@csrf_exempt
 def create_complaint(request):
     if request.method == 'POST':
         try:
@@ -66,8 +67,17 @@ def create_complaint(request):
     return render(request, 'create_complaint.html')
 
 def canvas_view(request):
-    complaints = Complaint.objects.all()
-    return render(request, 'drawer.html', {'complaints': complaints})
+    clusters = Cluster.objects.all()
+    clusters_data = json.dumps([{
+        'id': cluster.id,
+        'name': cluster.name
+    } for cluster in clusters])
+    
+    context = {
+        'total_clusters': clusters.count(),
+        'clusters': clusters_data,
+    }
+    return render(request, 'drawer.html', context)
 
 class CreateClusterWithComplaints(APIView):
     def post(self, request):
@@ -95,8 +105,8 @@ class CreateClusterWithComplaints(APIView):
             status=status.HTTP_201_CREATED
         )
 
-def apply_tsne(step):
-    call_command('applying_T-sne', step=step)
+def apply_tsne(perplexity):
+    call_command('applying_T-sne', perplexity=perplexity)
     return HttpResponse('')
 
 # API для вызова apply_tsne
@@ -105,14 +115,32 @@ def apply_tsne_api(request):
     if request.method == 'POST':
         try:
             data = json.loads(request.body)
-            step = data.get('step')
-            if step is None:
-                return JsonResponse({"error": "Параметр step отсутствует"}, status=400)
+            perplexity = data.get('perplexity')
+            if perplexity is None:
+                return JsonResponse({"error": "Параметр perplexity отсутствует"}, status=400)
             # Вызываем функцию apply_tsne
-            apply_tsne(step)
+            apply_tsne(perplexity)
 
             return JsonResponse({"message": "Функция apply_tsne вызвана успешно"})
         except json.JSONDecodeError:
             return JsonResponse({"error": "Неверный формат JSON"}, status=400)
     else:
         return JsonResponse({"error": "Метод не разрешен"}, status=405)
+
+def get_cluster_details(request, cluster_id):
+    try:
+        cluster = get_object_or_404(Cluster, id=cluster_id)
+        complaints = Complaint.objects.filter(cluster=cluster)
+        
+        data = {
+            'summary': cluster.summary,
+            'complaints': [{
+                'id': complaint.id,
+                'name': complaint.name,
+                'text': complaint.text
+            } for complaint in complaints]
+        }
+        
+        return JsonResponse(data)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)

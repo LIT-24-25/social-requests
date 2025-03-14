@@ -105,6 +105,7 @@ class Command(BaseCommand):
                 name=f"Cluster_{label}",
                 defaults={'summary': f"Auto-generated cluster {label}"}
             )
+            cluster.generate_summary("GigaChat")
             clusters[label] = cluster
 
         # Обновление жалоб с информацией о кластерах

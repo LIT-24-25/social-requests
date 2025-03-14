@@ -11,17 +11,74 @@
         #app {
             display: flex;
             flex-direction: row;
-            align-items: flex-start;
             gap: 20px;
         }
         #canvas {
             border: 2px solid #333;
         }
-        .info {
+        .clusters-panel {
+            width: 300px;
+            flex-shrink: 0;
+        }
+        .cluster-list {
+            margin-bottom: 20px;
+        }
+        .cluster-item {
+            cursor: pointer;
+            padding: 10px;
+            border: 1px solid #ccc;
+            margin-bottom: 5px;
+            background-color: #f9f9f9;
+        }
+        .cluster-item:hover {
+            background-color: #e9e9e9;
+        }
+        .cluster-item.active {
+            background-color: #e0e0e0;
+            border-color: #999;
+        }
+        .cluster-details {
+            padding: 15px;
+            background-color: #f5f5f5;
+            border: 1px solid #ddd;
+            margin-bottom: 10px;
+            display: none;
+        }
+        .cluster-details.visible {
+            display: block !important;
+        }
+        .complaint-list {
+            margin-top: 20px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .complaint-item {
+            padding: 10px;
+            border: 1px solid #ddd;
+            margin-bottom: 5px;
+            background-color: #ffffff;
+            border-radius: 4px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .right-panel {
+            width: 300px;
+            flex-shrink: 0;
+        }
+        .canvas-container {
+            flex: 1;
             display: flex;
-            flex-direction: column;
-            max-width: 300px;
-            flex-shrink: 0; 
+            justify-content: center;
+            align-items: flex-start;
+            height: fit-content;
+            overflow: hidden;
+        }
+        #canvas {
+            max-height: 650px;
+            width: 800px;
+            height: 650px;
+        }
+        .controls {
+            margin-bottom: 20px;
         }
         .text {
             display: flex;
@@ -88,32 +145,79 @@
 </head>
 <body>
     <div id="app">
-        <canvas ref="canvas" id="canvas" width="800" height="600"></canvas>
-        <div class="info">
-            <div class="text">
+        <!-- Error display -->
+        <div v-if="error" class="error-message" style="color: red; margin-bottom: 20px;">
+            [[ error ]]
+        </div>
+
+        <!-- Left panel - Clusters -->
+        <div class="clusters-panel">
+            <h2>Clusters ([[ totalClusters ]])</h2>
+            <div v-if="clusters.length === 0" class="no-clusters">
+                No clusters available
+            </div>
+            <div class="cluster-list">
+                <div v-for="cluster in clusters" :key="cluster.id">
+                    <div 
+                        class="cluster-item"
+                        :class="{ active: selectedClusterId === cluster.id }"
+                        @click="toggleClusterDetails(cluster.id)">
+                        [[ cluster.name ]]
+                    </div>
+                    <div 
+                        class="cluster-details"
+                        :class="{ visible: selectedClusterId === cluster.id }"
+                        v-show="selectedClusterId === cluster.id">
+                        <div v-if="cluster.id === selectedClusterId && clusterDetails[cluster.id]">
+                            <div class="cluster-summary">[[ clusterDetails[cluster.id].summary ]]</div>
+                            <div class="complaint-list">
+                                <div v-for="complaint in clusterDetails[cluster.id].complaints" 
+                                     :key="complaint.id" 
+                                     class="complaint-item">
+                                    <strong>[[ complaint.name ]]:</strong> [[ complaint.text ]]
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Center - Canvas -->
+        <div class="canvas-container">
+            <canvas ref="canvas" id="canvas" width="800" height="650"></canvas>
+        </div>
+
+        <!-- Right panel -->
+        <div class="right-panel">
+            <div class="controls">
+                <div class="buttons">
+                    <button @click="sendSelected">Отправить выделенные</button>
+                    <button @click="resetSelection">Сбросить выделение</button>
+                </div>
+                <div class="step-control">
+                    <label for="stepRange">Perplexity (2 - 150): [[ step ]]</label>
+                    <input type="range" id="stepRange" v-model.number="step" min="2" max="150">
+                    <button @click="applyTsne">Apply t-SNE</button>
+                </div>
+                <div class="mb-3">
+                    <select class="form-select mb-3" v-model="model">
+                        <option v-for="option in availableModels"
+                                :key="option"
+                                :value="option">
+                            [[ option ]]
+                        </option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="text" v-if="currentPoint.email">
                 <div>Email: [[ currentPoint.email ]]</div>
                 <div>Cluster: [[ currentPoint.cluster ]]</div>
                 <div>Name: [[ currentPoint.name ]]</div>
                 <div>Text: [[ currentPoint.info ]]</div>
             </div>
-            <div class="buttons">
-                <button @click="sendSelected">Отправить выделенные</button>
-                <button @click="resetSelection">Сбросить выделение</button>
-            </div>
-            <div class="step-control">
-                <label for="stepRange">Step (250 - 10000): [[ step ]]</label>
-                <input type="range" id="stepRange" v-model.number="step" min="250" max="10000">
-                <button @click="applyTsne">Apply t-SNE</button>
-            </div>
-            <div class="mb-3">
-                <select class="form-select mb-3" v-model="model">
-                    <option v-for="option in availableModels"
-                            :key="option"
-                            :value="option">
-                        [[ option ]]
-                    </option>
-                </select>
-            </div>
+
             <div class="zoom-control">
                 <label>Zoom: [[ (scale * 100).toFixed(0) ]]%</label>
                 <div class="zoom-buttons">
@@ -126,13 +230,19 @@
     </div>
 
     <script>
+        // Initialize data with proper error handling
+        window.djangoData = {
+            totalClusters: parseInt('{{ total_clusters|default:"0" }}'),
+            clusters: JSON.parse('{{ clusters|default:"[]"|escapejs }}')
+        };
+
         const { createApp } = Vue;
 
         class Point {
             constructor(id, x, y, info, email, name, cluster) {
                 this.id = id;
-                this.x = x*50;
-                this.y = y*50;
+                this.x = x * 50;
+                this.y = y * 50;
                 this.info = info;
                 this.email = email;
                 this.name = name;
@@ -176,19 +286,46 @@
                     offsetY: 0,
                     isPanning: false,
                     lastPanX: 0,
-                    lastPanY: 0
+                    lastPanY: 0,
+                    totalClusters: window.djangoData.totalClusters || 0,
+                    clusters: window.djangoData.clusters || [],
+                    selectedClusterId: null,
+                    clusterDetails: {},
+                    error: null
                 }
             },
             mounted() {
-                this.ctx = this.$refs.canvas.getContext('2d');
-                this.setupCanvasEvents();
+                console.log('Vue app mounted');
+                console.log('Initial data:', window.djangoData);
+                this.initializeCanvas();
                 this.fetchPoints();
             },
             methods: {
+                initializeCanvas() {
+                    const canvas = this.$refs.canvas;
+                    if (!canvas) {
+                        console.error('Canvas element not found');
+                        return;
+                    }
+                    
+                    this.ctx = canvas.getContext('2d');
+                    if (!this.ctx) {
+                        console.error('Could not get 2D context');
+                        return;
+                    }
+                    
+                    this.setupCanvasEvents();
+                },
                 async fetchPoints() {
                     try {
                         const response = await fetch('/api/complaints');
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! status: ${response.status}`);
+                        }
                         const data = await response.json();
+                        if (!Array.isArray(data)) {
+                            throw new Error('Invalid data format received');
+                        }
                         this.points = data.map(point => new Point(
                             point.id,
                             point.x,
@@ -200,10 +337,16 @@
                         ));
                         this.drawPoints();
                     } catch (error) {
-                        console.error('Ошибка при загрузке точек:', error);
+                        console.error('Error fetching points:', error);
+                        this.error = 'Failed to load points: ' + error.message;
                     }
                 },
                 drawPoints() {
+                    if (!this.ctx) {
+                        console.error('Canvas context not initialized');
+                        return;
+                    }
+
                     const canvas = this.$refs.canvas;
                     this.ctx.clearRect(0, 0, canvas.width, canvas.height);
                     
@@ -214,7 +357,7 @@
                     this.points.forEach(point => {
                         this.ctx.beginPath();
                         this.ctx.arc(point.x, point.y, this.pointRadius / this.scale, 0, Math.PI * 2);
-                        this.ctx.fillStyle = point.selected ? 'red' : 'black';
+                        this.ctx.fillStyle = point.selected ? 'red' : 'rgba(0, 0, 255, 0.25)';
                         this.ctx.fill();
                         this.ctx.closePath();
                     });
@@ -417,7 +560,7 @@
                         const response = await fetch('/api/apply-tsne/', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({step: this.step})
+                            body: JSON.stringify({perplexity: this.step})
                         });
 
                         if (response.ok) {
@@ -429,6 +572,39 @@
                     } catch (error) {
                         console.error('Ошибка:', error);
                         alert("Произошла ошибка при отправке запроса");
+                    }
+                },
+                async toggleClusterDetails(clusterId) {
+                    console.log('Toggling cluster details for:', clusterId);
+                    
+                    if (this.selectedClusterId === clusterId) {
+                        this.selectedClusterId = null;
+                    } else {
+                        this.selectedClusterId = clusterId;
+                        if (!this.clusterDetails[clusterId]) {
+                            try {
+                                console.log('Fetching details for cluster:', clusterId);
+                                const response = await fetch(`/api/clusters/${clusterId}/details/`);
+                                
+                                if (!response.ok) {
+                                    console.error('Server response not ok:', response.status);
+                                    throw new Error(`Failed to fetch cluster details: ${response.statusText}`);
+                                }
+                                
+                                const data = await response.json();
+                                console.log('Received cluster data:', data);
+                                
+                                this.clusterDetails[clusterId] = {
+                                    summary: data.summary,
+                                    complaints: data.complaints || []
+                                };
+                                
+                                this.$forceUpdate();
+                            } catch (error) {
+                                console.error('Error fetching cluster details:', error);
+                                this.error = `Failed to load cluster details: ${error.message}`;
+                            }
+                        }
                     }
                 }
             }

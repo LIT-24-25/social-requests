@@ -8,14 +8,15 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def calculate_tsne(embeddings, step=500):
+def calculate_tsne(embeddings, perplexity=500):
     """Применяет t-SNE к эмбеддингам"""
     tsne = TSNE(
         n_components=2,
-        perplexity=30,
-        max_iter=step,
+        perplexity=perplexity,
+        max_iter=1000,
         random_state=42,
-        verbose=0
+        verbose=0,
+        learning_rate=100
     )
     return tsne.fit_transform(np.array(embeddings))
 
@@ -25,10 +26,10 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument(
-            '--step',
+            '--perplexity',
             type=int,
-            default=500,
-            help='Number of iterations for t-SNE optimization'
+            default=10,
+            help='Perplexity for tsne'
         )
         parser.add_argument(
             '--batch-size',
@@ -38,7 +39,7 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-        step = options['step']
+        perplexity = options['perplexity']
         batch_size = options['batch_size']
 
         # Получаем только жалобы с эмбеддингами
@@ -71,7 +72,7 @@ class Command(BaseCommand):
         logger.info(f"Found {len(valid_embeddings)} valid embeddings")
 
         # Вычисляем t-SNE
-        tsne_results = calculate_tsne(valid_embeddings, step)
+        tsne_results = calculate_tsne(valid_embeddings, perplexity)
 
         print(Complaint.objects.order_by("id").last().x)
         # Обновляем записи батчами
