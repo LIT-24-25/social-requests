@@ -8,3 +8,4 @@ config/gigachat.txt
 config/openrouter.txt
 *.sqlite3
 .env
+*.txt

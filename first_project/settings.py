@@ -40,7 +40,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'complaints',
-    'clusters',
+    'clusters.apps.ClustersConfig',
     'django_extensions'
 ]
 
