@@ -23,19 +23,17 @@ class Cluster(models.Model):
 
             if model == "GigaChat":
                 prompt = f"""Проанализируй следующие жалобы и создай краткое обобщение на русском языке, 
-                        выделив основные проблемы и тенденции:
+                        выделив основные проблемы и тенденции. Суммарная длина ответа должна быть 10-20 слов:
 
                         {combined_text}
-
-                        Краткое обобщение (1-3 предложения):"""
+                        """
                 response = call_gigachat(prompt)
             else:
                 prompt = f"""Analyse the following complaints and create a brief summary, 
-                        highlighting the main problems and trends:
+                        highlighting the main problems and trends. Summary should containt 10-20 words:
 
                         {combined_text}
-
-                        Brief summary (1-3 sentences):"""
+                        """
                 response = call_qwen(prompt)
             return response
 

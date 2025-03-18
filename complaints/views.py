@@ -70,7 +70,8 @@ def canvas_view(request):
     clusters = Cluster.objects.all()
     clusters_data = json.dumps([{
         'id': cluster.id,
-        'name': cluster.name
+        'name': cluster.name,
+        'summary': cluster.summary
     } for cluster in clusters])
     
     context = {
@@ -97,7 +98,9 @@ class CreateClusterWithComplaints(APIView):
             complaint.save()
         
         # Генерируем и сохраняем суммаризацию
-        new_cluster.summary = new_cluster.generate_summary(model)
+        data  = new_cluster.generate_summary(model)
+        new_cluster.name = data[0]
+        new_cluster.summary = data[1]
         new_cluster.save()
 
         return Response(

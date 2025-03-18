@@ -275,7 +275,7 @@
                     startX: 0,
                     startY: 0,
                     selectedPoints: [],
-                    step: 500,
+                    step: 5,
                     currentPoint: {},
                     pointRadius: 3,
                     ctx: null,
@@ -415,9 +415,10 @@
                         this.points.forEach(point => {
                             if (point.isClicked(canvasPoint.x, canvasPoint.y, this.pointRadius / this.scale)) {
                                 point.selected = !point.selected;
+                                const cluster = this.clusters.find(c => c.id === point.cluster);
                                 this.currentPoint = { 
                                     email: point.email,
-                                    cluster: point.cluster,
+                                    cluster: cluster ? cluster.name : 'No Cluster',
                                     name: point.name,
                                     info: point.info
                                 };
@@ -581,6 +582,7 @@
                         this.selectedClusterId = null;
                     } else {
                         this.selectedClusterId = clusterId;
+                        const cluster = this.clusters.find(c => c.id === clusterId);
                         if (!this.clusterDetails[clusterId]) {
                             try {
                                 console.log('Fetching details for cluster:', clusterId);
@@ -595,7 +597,7 @@
                                 console.log('Received cluster data:', data);
                                 
                                 this.clusterDetails[clusterId] = {
-                                    summary: data.summary,
+                                    summary: data.summary || cluster.summary,
                                     complaints: data.complaints || []
                                 };
                                 
