@@ -3,11 +3,13 @@ from gigachat import GigaChat
 from gigachat.models import Chat, Messages, MessagesRole
 from clusters.instances import openrouter_token, gigachat_token
 from openai import OpenAI
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 import instructor
+from clusters.services import gigachat_service
 
 class OutputFormat(BaseModel):
-    summary: str
+    name: str = Field(description="Name of the cluster, that describes the main problem, containing 2-3 words")
+    summary: str = Field(description="Summary of the complaints, containing 10-20 words")
 
 def call_qwen(prompt):
     client = instructor.from_openai(OpenAI(
@@ -26,19 +28,28 @@ def call_qwen(prompt):
         response_model=OutputFormat
     )
 
-    data = completion.summary
-    return data
+    name = completion.name
+    summary = completion.summary
+    return name, summary
 
 def call_gigachat(prompt):
-    payload = Chat(
+    # Get a valid token using our token management system
+    token = gigachat_service.get_token()
+    
+    client = instructor.from_openai(OpenAI(
+        base_url="https://gigachat.devices.sberbank.ru/api/v1",
+        api_key=token,
+    ))
+    completion = client.chat.completions.create(
+        model="GigaChat",
         messages=[
-            Messages(
-                role=MessagesRole.USER,
-                content=prompt
-            )
+            {
+                "role": "user",
+                "content": prompt
+            }
         ],
-        temperature=0,
+        response_model=OutputFormat 
     )
-    with GigaChat(credentials=gigachat_token, verify_ssl_certs=False) as giga:
-        response = giga.chat(payload)
-        return response.choices[0].message.content
+    name = completion.name
+    summary = completion.summary
+    return name, summary

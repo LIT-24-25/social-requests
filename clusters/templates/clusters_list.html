@@ -59,8 +59,8 @@
             clusters: [
                 {% for cluster in clusters %}
                 {
-                    id: "{{ cluster.id }}",
-                    name: "{{ cluster.name|escapejs }}"
+                    name: "{{ cluster.name }}",
+                    summary: "{{ cluster.summary }}"
                 }{% if not forloop.last %},{% endif %}
                 {% endfor %}
             ]
@@ -76,24 +76,24 @@
 
         <div class="cluster-list">
             <h2>Clusters:</h2>
-            <div v-for="cluster in clusters" :key="cluster.id">
+            <div v-for="cluster in clusters" :key="cluster.name">
                 <div 
                     class="cluster-item"
-                    :class="{ active: selectedClusterId === cluster.id }"
-                    @click="toggleClusterDetails(cluster.id)">
+                    :class="{ active: selectedClusterId === cluster.name }"
+                    @click="toggleClusterDetails(cluster.name)">
                     [[ cluster.name ]]
                 </div>
                 <div 
                     class="cluster-details"
-                    :class="{ visible: selectedClusterId === cluster.id }">
-                    <div v-if="cluster.id === selectedClusterId && clusterDetails[cluster.id]">
-                        <div id="cluster-summary">[[ clusterDetails[cluster.id].summary ]]</div>
+                    :class="{ visible: selectedClusterId === cluster.name }">
+                    <div v-if="cluster.name === selectedClusterId && clusterDetails[cluster.name]">
+                        <div id="cluster-summary">[[ clusterDetails[cluster.name].summary ]]</div>
                         <div class="complaint-list">
                             <div 
-                                v-for="(complaint, index) in clusterDetails[cluster.id].complaints" 
+                                v-for="(complaint, index) in clusterDetails[cluster.name].complaints" 
                                 :key="index" 
                                 class="complaint-item">
-                                <strong>[[ complaint.name ]]:</strong> [[ complaint.text ]]
+                                <strong>[[ complaint.id ]]:</strong> [[ complaint.text ]]
                             </div>
                         </div>
                     </div>
