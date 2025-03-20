@@ -21,9 +21,9 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument(
-            'csv_path',
+            '--csv_path',
             type=str,
-            default=os.path.join(os.getcwd(), 'test_data.csv'),  # Путь по умолчанию
+            default=r"D:\test_data.csv",
             help='Absolute path to CSV file with complaints data'
         )
         parser.add_argument(
