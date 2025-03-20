@@ -34,13 +34,10 @@ class Complaint(models.Model):
         if not self.embedding:
             try:
                 # Инициализируем GigaChat с токеном
-                gigachat = GigaChat(credentials=gigachat_token)
+                gigachat = GigaChat(credentials=gigachat_token, verify_ssl_certs=False)
                 
                 # Получаем эмбеддинги
-                response = gigachat.embeddings(
-                    model="Embeddings",
-                    input=self.text
-                )
+                response = gigachat.embeddings(self.text)
                 self.embedding = response.data[0].embedding
             except Exception as e:
                 print(f"Ошибка при получении эмбеддингов: {str(e)}")
