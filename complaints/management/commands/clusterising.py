@@ -1,7 +1,8 @@
 import numpy as np
 from django.core.management import BaseCommand
-from sklearn.cluster import DBSCAN
-from sklearn.preprocessing import Normalizer
+from sklearn.cluster import KMeans
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import silhouette_score
 from complaints.models import Complaint
 from clusters.models import Cluster
 from tqdm import tqdm
@@ -11,20 +12,25 @@ logger = logging.getLogger(__name__)
 
 
 class Command(BaseCommand):
-    help = "Cluster complaints using DBSCAN algorithm"
+    help = "Cluster complaints using K-Means algorithm"
 
     def add_arguments(self, parser):
         parser.add_argument(
-            '--eps',
-            type=float,
-            default=0.5,
-            help='Maximum distance between samples in the same neighborhood'
-        )
-        parser.add_argument(
-            '--min-samples',
+            '--n-clusters',
             type=int,
             default=5,
-            help='Minimum number of samples in a neighborhood'
+            help='Number of clusters to form'
+        )
+        parser.add_argument(
+            '--auto-clusters',
+            action='store_true',
+            help='Automatically determine optimal number of clusters'
+        )
+        parser.add_argument(
+            '--max-clusters',
+            type=int,
+            default=15,
+            help='Maximum clusters for auto-detection'
         )
         parser.add_argument(
             '--batch-size',
@@ -33,19 +39,17 @@ class Command(BaseCommand):
             help='Number of records to process at once'
         )
         parser.add_argument(
-            '--metric',
-            type=str,
-            default='cosine',
-            help='Distance metric to use for DBSCAN (e.g., euclidean, cosine)'
+            '--plot',
+            action='store_true',
+            help='Show elbow method plot'
         )
 
     def handle(self, *args, **options):
-        eps = options['eps']
-        min_samples = options['min_samples']
+        logging.basicConfig(level=logging.INFO)
+        logger.info("Starting K-Means clustering process...")
         batch_size = options['batch_size']
-        metric = options['metric']
 
-        # Получаем все жалобы с валидными эмбеддингами
+        # Получение данных
         complaints = Complaint.objects.exclude(embedding__isnull=True)
         total = complaints.count()
 
@@ -53,16 +57,15 @@ class Command(BaseCommand):
             logger.error("No complaints with embeddings found!")
             return
 
-        logger.info(f"Processing {total} complaints with DBSCAN (eps={eps}, min_samples={min_samples}, metric={metric})...")
-
-        # Подготовка данных для кластеризации
+        # Подготовка эмбеддингов
         embeddings = []
         valid_complaints = []
         for complaint in complaints.iterator():
             try:
                 if isinstance(complaint.embedding, list):
                     embedding = np.array(complaint.embedding)
-                    if not np.isnan(embedding).any():  # Проверка на NaN
+                    #embedding = np.array([complaint.x, complaint.y])
+                    if not np.isnan(embedding).any():
                         embeddings.append(embedding)
                         valid_complaints.append(complaint)
             except Exception as e:
@@ -72,59 +75,67 @@ class Command(BaseCommand):
             logger.error("No valid embeddings found!")
             return
 
-        # Логгирование информации о данных
-        logger.info(f"Total embeddings: {len(embeddings)}")
-        logger.info(f"Embedding dimensionality: {len(embeddings[0])}")
-        logger.info(f"Sample embedding: {embeddings[0]}")
-        logger.info(f"Min/Max values in embeddings: {np.min(embeddings)}, {np.max(embeddings)}")
+        # Нормализация данных
+        scaler = StandardScaler()
+        scaled_embeddings = scaler.fit_transform(embeddings)
+        logger.info("Embeddings normalized using StandardScaler")
 
-        # Нормализация эмбеддингов (для косинусного расстояния)
-        normalizer = Normalizer(norm='l2')
-        embeddings = normalizer.fit_transform(embeddings)
+        # Автоматический подбор числа кластеров
+        if options['auto_clusters']:
+            logger.info("Calculating optimal number of clusters...")
+            wcss = []
+            silhouette_scores = []
+            max_clusters = min(options['max_clusters'], len(embeddings) - 1)
 
-        # Кластеризация с DBSCAN
-        dbscan = DBSCAN(eps=eps, min_samples=min_samples, metric=metric)
-        labels = dbscan.fit_predict(embeddings)
+            for i in tqdm(range(2, max_clusters + 1)):
+                kmeans = KMeans(n_clusters=i, init='k-means++', random_state=42, max_iter=1000, tol=1e-5)
+                kmeans.fit(scaled_embeddings)
+                wcss.append(kmeans.inertia_)
+                if i > 1:
+                    silhouette_scores.append(silhouette_score(scaled_embeddings, kmeans.labels_))
+            print(silhouette_scores)
+
+
+            # Автовыбор числа кластеров
+            optimal_clusters = np.argmax([0] + silhouette_scores) + 2
+            logger.info(f"Optimal number of clusters: {optimal_clusters}")
+            n_clusters = optimal_clusters
+        else:
+            n_clusters = options['n_clusters']
+
+        # Кластеризация
+        logger.info(f"Performing K-Means clustering with {n_clusters} clusters...")
+        kmeans = KMeans(
+            n_clusters=n_clusters,
+            init='k-means++',
+            max_iter=300,
+            random_state=42
+        )
+        labels = kmeans.fit_predict(scaled_embeddings)
 
         # Анализ результатов
-        unique_labels, counts = np.unique(labels, return_counts=True)
-        logger.info(f"Clusters found: {unique_labels}")
-        logger.info(f"Cluster sizes: {counts}")
+        unique_labels = np.unique(labels)
+        logger.info(f"Created {len(unique_labels)} clusters")
+        logger.info(f"Silhouette Score: {silhouette_score(scaled_embeddings, labels):.2f}")
 
-        # Если все точки - шум
-        if len(unique_labels) == 1 and unique_labels[0] == -1:
-            logger.error("No clusters detected. Adjust parameters!")
-            return
-
-        # Создание или обновление кластеров
+        # Создание кластеров в БД
         clusters = {}
         for label in unique_labels:
-            if label == -1:  # Пропускаем шум
-                continue
-            cluster, created = Cluster.objects.get_or_create(
-                name=f"Cluster_{label}",
-                defaults={'summary': f"Auto-generated cluster {label}"}
+            cluster, created = Cluster.objects.update_or_create(
+                name=f"KMeans_Cluster_{label}",
+                defaults={'summary': f"K-Means cluster {label}"}
             )
-            cluster.generate_summary("GigaChat")
             clusters[label] = cluster
 
-        # Обновление жалоб с информацией о кластерах
-        with tqdm(total=len(valid_complaints), desc="Updating clusters") as pbar:
-            for i in range(0, len(valid_complaints), batch_size):
-                batch = valid_complaints[i:i + batch_size]
-                label_batch = labels[i:i + batch_size]
+        # Обновление жалоб
+        logger.info("Updating complaints with cluster info...")
+        for i in tqdm(range(0, len(valid_complaints), batch_size)):
+            batch = valid_complaints[i:i+batch_size]
+            label_batch = labels[i:i + batch_size]
 
-                for complaint, label in zip(batch, label_batch):
-                    if label == -1:
-                        complaint.cluster = None
-                    else:
-                        complaint.cluster = clusters.get(label)
+            for complaint, label in zip(batch, label_batch):
+                complaint.cluster = clusters[label]
 
-                for complaint in batch:
-                    complaint.save()
-                pbar.update(len(batch))
+            Complaint.objects.bulk_update(batch, ['cluster'])
 
-        logger.info(f"Created {len(clusters)} clusters")
-        logger.info("Cluster distribution:")
-        for label, count in zip(unique_labels, counts):
-            logger.info(f"Label {label}: {count} items")
+        logger.info("Clustering completed successfully!")
