@@ -42,20 +42,24 @@ class TokenManager:
         return self.token
 
     def refresh_token(self) -> None:
-        payload = {
-            'scope': 'GIGACHAT_API_PERS'
-        }
-        headers = {
-            'Content-Type': 'application/x-www-form-urlencoded',
-            'Accept': 'application/json',
-            'RqUID': str(uuid.uuid4()),
-            'Authorization': 'Basic ' + gigachat_token
-        }
-        response = requests.request("POST", "https://ngw.devices.sberbank.ru:9443/api/v2/oauth", headers=headers, data=payload, verify=False)
-        response.raise_for_status()
-        data = response.json()
-        self.token = data.get("access_token", "Unknown")
-        self.last_refresh = datetime.now()
+        try:
+            payload = {
+                'scope': 'GIGACHAT_API_PERS'
+            }
+            headers = {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'Accept': 'application/json',
+                'RqUID': str(uuid.uuid4()),
+                'Authorization': 'Basic ' + gigachat_token
+            }
+            response = requests.request("POST", "https://ngw.devices.sberbank.ru:9443/api/v2/oauth", headers=headers, data=payload, verify=False)
+            response.raise_for_status()
+            data = response.json()
+            self.token = data.get("access_token", "Unknown")
+            self.last_refresh = datetime.now()
+        except:
+            self.token = "Unknown"
+            self.last_refresh = datetime.now()
         with open(self.token_path, 'w') as f:
             f.write(self.token + '\n')
             f.write(self.last_refresh.strftime('%Y-%m-%d %H:%M:%S'))
