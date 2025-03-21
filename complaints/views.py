@@ -66,7 +66,7 @@ def create_complaint(request):
             
     return render(request, 'create_complaint.html')
 
-def canvas_view(request):
+def visual_view(request):
     clusters = Cluster.objects.all()
     clusters_data = json.dumps([{
         'id': cluster.id,
@@ -78,7 +78,7 @@ def canvas_view(request):
         'total_clusters': clusters.count(),
         'clusters': clusters_data,
     }
-    return render(request, 'drawer.html', context)
+    return render(request, 'visual.html', context)
 
 class CreateClusterWithComplaints(APIView):
     def post(self, request):
