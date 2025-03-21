@@ -47,6 +47,7 @@ def call_gigachat(prompt_title, prompt_summary):
 
     payload = Chat(
         messages=[
+
             Messages(
                 role=MessagesRole.USER,
                 content=prompt_summary
@@ -57,4 +58,7 @@ def call_gigachat(prompt_title, prompt_summary):
     with GigaChat(credentials=gigachat_token, verify_ssl_certs=False) as giga:
         response = giga.chat(payload)
     summary = response.choices[0].message.content
+
+    name = response.choices[0].message.content
+    summary = response.choices[1].message.content
     return name, summary     

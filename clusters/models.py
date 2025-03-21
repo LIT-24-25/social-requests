@@ -32,6 +32,7 @@ class Cluster(models.Model):
 
                         {combined_text}
                         """
+
                 response = call_gigachat(prompt_title, prompt_summary)
             else:
                 prompt = f"""Analyse the following complaints and create a brief summary, 
