@@ -37,16 +37,27 @@ def call_gigachat(prompt_title, prompt_summary):
             Messages(
                 role=MessagesRole.USER,
                 content=prompt_title
-            ),
+            )
+        ],
+        temperature=0
+    )
+    with GigaChat(credentials=gigachat_token, verify_ssl_certs=False) as giga:
+        response = giga.chat(payload)
+    name = response.choices[0].message.content
+
+    payload = Chat(
+        messages=[
+
             Messages(
                 role=MessagesRole.USER,
                 content=prompt_summary
             )
         ],
-        temperature=0,
+        temperature=0
     )
     with GigaChat(credentials=gigachat_token, verify_ssl_certs=False) as giga:
         response = giga.chat(payload)
+    summary = response.choices[0].message.content
 
     name = response.choices[0].message.content
     summary = response.choices[1].message.content
