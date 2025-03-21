@@ -13,6 +13,7 @@ class InstanceConfig:
             # Store the tokens as instance attributes
             self.openrouter_token = self.env("OPENROUTER_TOKEN", default="openrouter")
             self.gigachat_token = self.env("GIGACHAT_TOKEN", default="gigachat")
+            self.youtube_api_key = self.env("YOUTUBE_API_KEY", default="youtube_api_key")
 
             # Mark as initialized to avoid re-initialization
             InstanceConfig._initialized = True
@@ -23,3 +24,4 @@ config = InstanceConfig()
 # Define variables for direct import access
 openrouter_token = config.openrouter_token
 gigachat_token = config.gigachat_token
+youtube_api_key = config.youtube_api_key
