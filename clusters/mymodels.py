@@ -15,18 +15,20 @@ def call_qwen(prompt):
         base_url="https://openrouter.ai/api/v1",
         api_key=openrouter_token,
     ))
-
     completion = client.chat.completions.create(
         model="qwen/qwen-plus",
         messages=[
             {
-            "role": "user",
-            "content": prompt
+                "role": "user",
+                "content": prompt
             }
         ],
-        response_model=OutputFormat
+        response_model=OutputFormat,
+        temperature=0,
+        max_tokens=1024,
+        timeout=60,
+        max_retries=3
     )
-
     name = completion.name
     summary = completion.summary
     return name, summary
@@ -47,7 +49,6 @@ def call_gigachat(prompt_title, prompt_summary):
 
     payload = Chat(
         messages=[
-
             Messages(
                 role=MessagesRole.USER,
                 content=prompt_summary
@@ -58,7 +59,4 @@ def call_gigachat(prompt_title, prompt_summary):
     with GigaChat(credentials=gigachat_token, verify_ssl_certs=False) as giga:
         response = giga.chat(payload)
     summary = response.choices[0].message.content
-
-    name = response.choices[0].message.content
-    summary = response.choices[1].message.content
     return name, summary     
