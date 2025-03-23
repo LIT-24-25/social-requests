@@ -88,7 +88,8 @@ class CreateClusterWithComplaints(APIView):
         # Создаем новый кластер
         new_cluster = Cluster.objects.create(
             name=f"Cluster {Cluster.objects.count() + 1}",
-            summary="Генерация описания..."  # Временный текст
+            summary="Генерация описания...",  # Временный текст
+            model=model  # Save the model name
         )
 
         # Привязываем жалобы и обновляем кластер
@@ -137,6 +138,7 @@ def get_cluster_details(request, cluster_id):
         
         data = {
             'summary': cluster.summary,
+            'model': cluster.model,
             'complaints': [{
                 'id': complaint.id,
                 'name': complaint.name,
