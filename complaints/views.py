@@ -149,3 +149,45 @@ def get_cluster_details(request, cluster_id):
         return JsonResponse(data)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
+
+@csrf_exempt
+def regenerate_summary(request):
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            cluster_id = data.get('cluster_id')
+            
+            if cluster_id is None:
+                return JsonResponse({"error": "Параметр cluster_id отсутствует"}, status=400)
+            
+            # Получаем кластер
+            cluster = get_object_or_404(Cluster, id=cluster_id)
+            
+            # Ensure model is set, default to GigaChat if not
+            if not cluster.model:
+                cluster.model = 'GigaChat'
+                cluster.save()
+            
+            # Регенерируем и сохраняем суммаризацию, используя модель из кластера
+            result = cluster.generate_summary(cluster.model)
+            
+            if isinstance(result, tuple) and len(result) == 2:
+                cluster.name = result[0]
+                cluster.summary = result[1]
+                cluster.save()
+                
+                return JsonResponse({
+                    "message": "Суммаризация кластера успешно обновлена",
+                    "name": cluster.name,
+                    "summary": cluster.summary,
+                    "model": cluster.model
+                })
+            else:
+                return JsonResponse({"error": "Некорректный результат генерации"}, status=500)
+                
+        except json.JSONDecodeError:
+            return JsonResponse({"error": "Неверный формат JSON"}, status=400)
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=500)
+    else:
+        return JsonResponse({"error": "Метод не разрешен"}, status=405)
