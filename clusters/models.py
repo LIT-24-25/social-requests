@@ -2,11 +2,13 @@ from django.db import models
 from gigachat import GigaChat
 from gigachat.exceptions import GigaChatException
 from .mymodels import call_gigachat, call_qwen
+import random
 
 
 class Cluster(models.Model):
     name = models.CharField(max_length=100, default='Unnamed Cluster')
     summary = models.TextField()
+    model = models.CharField(max_length=50, default='GigaChat')  # Field to store which model was used
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -18,8 +20,12 @@ class Cluster(models.Model):
             complaints = Complaint.objects.filter(cluster=self)
             if not complaints.exists():
                 return "Нет жалоб для анализа"
-            complaints_texts = [f"Жалоба {i + 1}: {c.text[:500]}" for i, c in enumerate(complaints)]
-            combined_text = "\n".join(complaints_texts[:10])  # Берем первые 10 жалоб чтобы не превысить лимиты
+            amount = random.randint(10, 30)
+            complaints_list = list(complaints)
+            complaints_for_summary = random.sample(complaints_list, min(amount, len(complaints_list)))
+            complaints_texts = [f"Жалоба {i + 1}: {c.text[:500]}" for i, c in enumerate(complaints_for_summary)]
+
+            combined_text = "\n".join(complaints_texts)
 
             if model == "GigaChat":
                 prompt_title = f"""Проанализируй следующие жалобы и создай название на русском языке, 
