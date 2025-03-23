@@ -16,14 +16,14 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
-from complaints.views import create_complaint, canvas_view
+from complaints.views import create_complaint, visual_view
 from clusters.views import cluster_list, ClusterDetailAPI
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include('complaints.urls')),
     path('', create_complaint),
-    path('canvas/', canvas_view),
+    path('visual/', visual_view),
     path('api/', include('clusters.urls')),
     path('clusters/', cluster_list, name='cluster-list'),
     path('clusters/<int:cluster_id>/', ClusterDetailAPI.as_view(), name='cluster-detail'),
