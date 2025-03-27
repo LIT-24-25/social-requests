@@ -11,25 +11,34 @@ class OutputFormat(BaseModel):
     summary: str = Field(description="Summary of the complaints, containing 10-20 words", default='Не удалось сгенерировать описание')
 
 def call_qwen(prompt):
-    client = instructor.from_openai(OpenAI(
-        base_url="https://openrouter.ai/api/v1",
-        api_key=openrouter_token,
-    ))
-
-    completion = client.chat.completions.create(
-        model="qwen/qwen-plus",
-        messages=[
-            {
-            "role": "user",
-            "content": prompt
-            }
-        ],
-        response_model=OutputFormat
-    )
-
-    name = completion.name
-    summary = completion.summary
-    return name, summary
+    try:
+        client = instructor.from_openai(OpenAI(
+            base_url="https://openrouter.ai/api/v1",
+            api_key=openrouter_token,
+        ))
+        completion = client.chat.completions.create(
+            model="qwen/qwen-plus",
+            messages=[
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ],
+            response_model=OutputFormat,
+            temperature=0,
+            max_tokens=1024,
+            timeout=60,
+            max_retries=3
+        )
+        
+        # Ensure we have valid name and summary
+        name = completion.name if completion.name else 'Unnamed Cluster'
+        summary = completion.summary if completion.summary else 'No summary available'
+        
+        return name, summary
+    except Exception as e:
+        print(f"Error in call_qwen: {str(e)}")
+        return "Error", "Failed to generate summary"
 
 def call_gigachat(prompt_title, prompt_summary):
     payload = Chat(
@@ -37,17 +46,24 @@ def call_gigachat(prompt_title, prompt_summary):
             Messages(
                 role=MessagesRole.USER,
                 content=prompt_title
-            ),
+            )
+        ],
+        temperature=0
+    )
+    with GigaChat(credentials=gigachat_token, verify_ssl_certs=False) as giga:
+        response = giga.chat(payload)
+    name = response.choices[0].message.content
+
+    payload = Chat(
+        messages=[
             Messages(
                 role=MessagesRole.USER,
                 content=prompt_summary
             )
         ],
-        temperature=0,
+        temperature=0
     )
     with GigaChat(credentials=gigachat_token, verify_ssl_certs=False) as giga:
         response = giga.chat(payload)
-
-    name = response.choices[0].message.content
-    summary = response.choices[1].message.content
+    summary = response.choices[0].message.content
     return name, summary     

@@ -6,6 +6,7 @@ from typing import List, Dict, Optional
 from complaints.models import Complaint
 from gigachat import GigaChat
 from clusters.instances import youtube_api_key, gigachat_token
+from tqdm import tqdm
 import random
 import logging
 
@@ -19,7 +20,7 @@ class Command(BaseCommand):
         parser.add_argument(
             '--max-results',
             type=int,
-            default=100,
+            default=300,
             help='Maximum number of comments to retrieve (default: 100)'
         )
 
@@ -173,7 +174,8 @@ class Command(BaseCommand):
             logger.info("Connected to GigaChat service")
             
             success_count = 0
-            for i, comment in enumerate(comments, 1):
+            complaints_to_create = []
+            for i, comment in enumerate(tqdm(comments, desc="Processing comments", unit="comment"), 1):
                 try:
                     complaint = Complaint(
                         name=comment['name'],
@@ -183,12 +185,15 @@ class Command(BaseCommand):
                         y=random.randint(0, 100)
                     )
                     complaint.call_gigachat_embeddings(complaint.text, giga_client)
-                    complaint.save()
-                    success_count += 1
+                    complaints_to_create.append(complaint)
                     logger.debug(f"Processed comment {i}/{len(comments)} from user {comment['name']}")
                 except Exception as e:
                     logger.error(f"Error processing comment {i} from {comment['name']}: {str(e)}")
                     continue
+            
+            if complaints_to_create:
+                created_complaints = Complaint.objects.bulk_create(complaints_to_create, batch_size=100)
+                success_count = len(created_complaints)
             
             logger.info("Completed processing all YouTube comments")
             self.stdout.write(
