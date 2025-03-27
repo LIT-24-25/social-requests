@@ -4,66 +4,145 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Visual</title>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --primary-color: #4361ee;
+            --secondary-color: #3f37c9;
+            --text-color: #333;
+            --border-color: #e5e7eb;
+            --bg-color: #f9fafb;
+            --panel-bg: #ffffff;
+            --hover-color: #f1f5f9;
+            --active-color: #e0e7ff;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            --radius: 8px;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
         body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.5;
             padding: 20px;
         }
+        
+        h2 {
+            font-weight: 600;
+            font-size: 1.5rem;
+            margin-bottom: 16px;
+            color: #111827;
+        }
+        
         #app {
             display: flex;
             flex-direction: row;
-            gap: 20px;
+            gap: 24px;
+            max-width: 1600px;
+            margin: 0 auto;
         }
+        
         #canvas {
-            border: 2px solid #333;
+            border-radius: var(--radius);
+            background-color: var(--panel-bg);
+            box-shadow: var(--shadow);
+            border: none;
         }
+        
         .clusters-panel {
-            width: 300px;
+            width: 320px;
             flex-shrink: 0;
+            background-color: var(--panel-bg);
+            border-radius: var(--radius);
+            padding: 20px;
+            box-shadow: var(--shadow);
+            height: fit-content;
+            max-height: 650px;
+            overflow-y: auto;
         }
+        
         .cluster-list {
             margin-bottom: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
         }
+        
         .cluster-item {
             cursor: pointer;
-            padding: 10px;
-            border: 1px solid #ccc;
-            margin-bottom: 5px;
-            background-color: #f9f9f9;
+            padding: 12px 16px;
+            border-radius: var(--radius);
+            background-color: var(--bg-color);
+            transition: all 0.2s ease;
+            font-weight: 500;
+            border: 1px solid var(--border-color);
         }
+        
         .cluster-item:hover {
-            background-color: #e9e9e9;
+            background-color: var(--hover-color);
         }
+        
         .cluster-item.active {
-            background-color: #e0e0e0;
-            border-color: #999;
+            background-color: var(--active-color);
+            border-color: var(--primary-color);
+            color: var(--primary-color);
         }
+        
         .cluster-details {
-            padding: 15px;
-            background-color: #f5f5f5;
-            border: 1px solid #ddd;
-            margin-bottom: 10px;
+            padding: 16px;
+            background-color: var(--bg-color);
+            border-radius: var(--radius);
+            margin-bottom: 16px;
             display: none;
+            border: 1px solid var(--border-color);
         }
+        
         .cluster-details.visible {
             display: block !important;
         }
+        
+        .cluster-summary {
+            margin-bottom: 12px;
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+        
         .complaint-list {
-            margin-top: 20px;
+            margin-top: 16px;
             max-height: 300px;
             overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
         }
+        
         .complaint-item {
-            padding: 10px;
-            border: 1px solid #ddd;
-            margin-bottom: 5px;
-            background-color: #ffffff;
-            border-radius: 4px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            padding: 12px;
+            border: 1px solid var(--border-color);
+            background-color: var(--panel-bg);
+            border-radius: var(--radius);
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+            font-size: 0.9rem;
         }
+        
         .right-panel {
-            width: 300px;
+            width: 320px;
             flex-shrink: 0;
+            background-color: var(--panel-bg);
+            border-radius: var(--radius);
+            padding: 20px;
+            box-shadow: var(--shadow);
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
         }
+        
         .canvas-container {
             flex: 1;
             display: flex;
@@ -72,105 +151,155 @@
             height: fit-content;
             overflow: hidden;
         }
+        
         #canvas {
             max-height: 650px;
             width: 800px;
             height: 650px;
         }
+        
         .controls {
-            margin-bottom: 20px;
-        }
-        .text {
-            display: flex;
-            flex-direction: column;
-            justify-content: flex-start;
-            background-color: #f5f5f5;
-            padding: 15px;
-            border-radius: 5px;
-        }
-        .text div {
-            margin-top: 10px;
-            font-family: Arial, sans-serif;
-            font-size: 16px;
-            color: #333;
-        }
-        .buttons {
-            margin-top: 20px;
             display: flex;
             flex-direction: column;
             gap: 20px;
         }
-        .buttons button {
-            margin-right: 10px;
-            padding: 10px 20px;
-            font-size: 16px;
-            cursor: pointer;
-        }
-        .step-control {
-            margin-top: 20px;
+        
+        .text {
             display: flex;
             flex-direction: column;
+            justify-content: flex-start;
+            background-color: var(--bg-color);
+            padding: 16px;
+            border-radius: var(--radius);
+            border: 1px solid var(--border-color);
+        }
+        
+        .text div {
+            margin-top: 8px;
+            font-size: 0.95rem;
+        }
+        
+        .buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        button {
+            padding: 12px 16px;
+            font-size: 0.95rem;
+            cursor: pointer;
+            border: none;
+            background-color: var(--primary-color);
+            color: white;
+            border-radius: var(--radius);
+            font-weight: 500;
+            transition: background-color 0.2s ease;
+        }
+        
+        button:hover {
+            background-color: var(--secondary-color);
+        }
+        
+        .step-control {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        .step-control label {
+            font-size: 0.95rem;
+        }
+        
+        input[type="range"] {
+            width: 100%;
+            accent-color: var(--primary-color);
+            height: 6px;
+            border-radius: 6px;
+        }
+        
+        .zoom-control {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        .zoom-control label {
+            font-size: 0.95rem;
+            text-align: center;
+        }
+        
+        .zoom-buttons {
+            display: flex;
             gap: 10px;
         }
-        .step-control label {
-            font-family: Arial, sans-serif;
-            font-size: 16px;
-            color: #333;
+        
+        .zoom-buttons button {
+            padding: 8px 16px;
+            flex: 1;
         }
-        .step-control input[type="range"] {
+        
+        .form-select {
+            padding: 10px 14px;
+            font-size: 0.95rem;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius);
+            background-color: var(--bg-color);
+            transition: border-color 0.2s ease;
             width: 100%;
         }
-        .zoom-control {
-            margin-top: 20px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-        .zoom-control label {
-            font-family: Arial, sans-serif;
-            font-size: 16px;
-            color: #333;
-        }
-        .zoom-buttons {
-            margin-top: 10px;
-            display: flex;
-            gap: 10px;
-        }
-        .zoom-buttons button {
-            padding: 5px;
-            font-size: 16px;
-            cursor: pointer;
-        }
-        .form-select {
-            padding: 10px 10px;
-            font-size: 16px;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-            background-color: #f9f9f9;
-            transition: border-color 0.3s;
-        }
+        
         .form-select:focus {
             outline: none;
+            border-color: var(--primary-color);
         }
-        .form-select option {
-            padding: 10px;
-        }
+        
         .apply-tsne-button {
-            padding: 12px 24px;
-            font-size: 18px;
-            cursor: pointer;
-            border-radius: 5px;
-            transition: background-color 0.3s;
+            margin-top: 8px;
         }
-        .apply-tsne-button:hover {
-            background-color: #aaacaf;
+        
+        .error-message {
+            background-color: #fee2e2;
+            color: #dc2626;
+            padding: 12px;
+            border-radius: var(--radius);
+            margin-bottom: 20px;
+            font-weight: 500;
+        }
+        
+        .no-clusters {
+            padding: 16px;
+            text-align: center;
+            color: #6b7280;
+            background-color: var(--bg-color);
+            border-radius: var(--radius);
+            border: 1px dashed var(--border-color);
+        }
+        
+        /* Scrollbar customization */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: #c5c7ca;
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: #a1a3a7;
         }
     </style>
 </head>
 <body>
     <div id="app">
         <!-- Error display -->
-        <div v-if="error" class="error-message" style="color: red; margin-bottom: 20px;">
+        <div v-if="error" class="error-message">
             [[ error ]]
         </div>
 
@@ -217,16 +346,16 @@
             <div class="controls">
                 <div class="buttons">
                     <button @click="sendSelected">Отправить выделенные</button>
-                    <button @click="resetSelection">Сбросить выделение</button>
+                    <button @click="resetSelection" style="background-color: #6b7280;">Сбросить выделение</button>
                 </div>
                 <div class="step-control">
                     <label for="stepRange">Perplexity (2 - 150): [[ step ]]</label>
                     <input type="range" id="stepRange" v-model.number="step" min="2" max="150">
                     <button @click="applyTsne" class="apply-tsne-button">Apply t-SNE</button>
                 </div>
-                <div class="mb-3" style="margin-top: 20px;">
-                    <label for="modelSelect" style="font-family: Arial, sans-serif; font-size: 16px; color: #333;">Выберите модель:</label>
-                    <select id="modelSelect" class="form-select mb-3" v-model="model">
+                <div style="margin-top: 8px;">
+                    <label for="modelSelect">Выберите модель:</label>
+                    <select id="modelSelect" class="form-select" v-model="model">
                         <option v-for="option in availableModels"
                                 :key="option"
                                 :value="option">
@@ -237,10 +366,10 @@
             </div>
 
             <div class="text" v-if="currentPoint.email">
-                <div>Email: [[ currentPoint.email ]]</div>
-                <div>Cluster: [[ currentPoint.cluster ]]</div>
-                <div>Name: [[ currentPoint.name ]]</div>
-                <div>Text: [[ currentPoint.info ]]</div>
+                <div><strong>Email:</strong> [[ currentPoint.email ]]</div>
+                <div><strong>Cluster:</strong> [[ currentPoint.cluster ]]</div>
+                <div><strong>Name:</strong> [[ currentPoint.name ]]</div>
+                <div><strong>Text:</strong> [[ currentPoint.info ]]</div>
             </div>
 
             <div class="zoom-control">
@@ -248,7 +377,7 @@
                 <div class="zoom-buttons">
                     <button @click="zoom(1.2)">+</button>
                     <button @click="zoom(0.8)">-</button>
-                    <button @click="resetView">Reset View</button>
+                    <button @click="resetView" style="background-color: #6b7280;">Reset View</button>
                 </div>
             </div>
         </div>
@@ -383,7 +512,7 @@
                     this.points.forEach(point => {
                         this.ctx.beginPath();
                         this.ctx.arc(point.x, point.y, this.pointRadius / this.scale, 0, Math.PI * 2);
-                        this.ctx.fillStyle = point.selected ? 'red' : (point.highlighted ? 'green' : 'rgba(0, 0, 255, 0.25)');
+                        this.ctx.fillStyle = point.selected ? '#ef4444' : (point.highlighted ? '#10b981' : 'rgba(79, 70, 229, 0.4)');
                         this.ctx.fill();
                         this.ctx.closePath();
                     });
@@ -505,7 +634,7 @@
                             canvasPoint.x - this.startX, 
                             canvasPoint.y - this.startY
                         );
-                        this.ctx.strokeStyle = 'blue';
+                        this.ctx.strokeStyle = '#4361ee';
                         this.ctx.stroke();
                         this.ctx.closePath();
                         
@@ -568,14 +697,41 @@
 
                         if (response.ok) {
                             const data = await response.json();
+                            await this.updateClustersPanel();
                             alert(`Кластер успешно создан! ID: ${data.cluster_id}`);
-                            location.reload();
                         } else {
                             alert("Ошибка при создании кластера");
                         }
                     } catch (error) {
                         console.error('Ошибка:', error);
                         alert("Произошла ошибка при отправке данных");
+                    }
+                },
+                async updateClustersPanel() {
+                    try {
+                        const response = await fetch('/api/clusters/');
+                        if (!response.ok) {
+                            throw new Error('Failed to fetch clusters');
+                        }
+                        const clusters = await response.json();
+                        
+                        this.totalClusters = clusters.length;
+                        this.clusters = clusters.map(cluster => ({
+                            id: cluster.id,
+                            name: cluster.name,
+                            summary: cluster.summary
+                        }));
+                        
+                        this.selectedClusterId = null;
+                        this.clusterDetails = {};
+                        
+                        this.points.forEach(point => {
+                            point.highlighted = false;
+                        });
+                        this.drawPoints();
+                    } catch (error) {
+                        console.error('Error updating clusters panel:', error);
+                        this.error = 'Failed to update clusters: ' + error.message;
                     }
                 },
                 resetSelection() {
