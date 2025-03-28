@@ -5,7 +5,6 @@ from gigachat.exceptions import GigaChatException
 from clusters.instances import gigachat_token
 from typing import List, Dict, Tuple
 import logging
-from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
 
@@ -57,10 +56,7 @@ class Complaint(models.Model):
         processed_complaints = []
 
         batch_response = giga_client.embeddings(texts)
-        for i, (complaint, text) in enumerate(tqdm(zip(complaints, texts), 
-                                              total=len(complaints), 
-                                              desc="Processing embeddings", 
-                                              unit="complaint")):
+        for i, (complaint, text) in enumerate(zip(complaints, texts)):
             complaint.embedding = batch_response.data[i].embedding
             processed_complaints.append(complaint)
             
