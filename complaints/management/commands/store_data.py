@@ -114,7 +114,8 @@ class Command(BaseCommand):
                 texts=texts,
                 giga_client=giga_client
             )
-            # Save to database
+            # Save to database - use bulk_create
+            # Note: bulk_create bypasses the save() method, but embeddings are already set
             Complaint.objects.bulk_create(processed_complaints, batch_size=len(processed_complaints))
             return len(processed_complaints)
             

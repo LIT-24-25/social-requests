@@ -1,214 +1,219 @@
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Visual</title>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <style>
-        body {
-            padding: 20px;
+        :root {
+            --primary-color: #4361ee;
+            --secondary-color: #3f37c9;
+            --text-color: #333;
+            --border-color: #e5e7eb;
+            --bg-color: #f9fafb;
+            --panel-bg: #ffffff;
+            --hover-color: #f1f5f9;
+            --active-color: #e0e7ff;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            --radius: 8px;
         }
-        #app {
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background-color: var(--bg-color); color: var(--text-color); line-height: 1.5; padding: 20px; }
+        h2 { font-weight: 600; font-size: 1.5rem; margin-bottom: 16px; color: #111827; }
+        
+        #app { display: flex; flex-direction: row; gap: 24px; max-width: 1600px; margin: 0 auto; }
+        #canvas { border-radius: var(--radius); background-color: var(--panel-bg); box-shadow: var(--shadow); border: none; max-height: 650px; width: 800px; height: 650px; }
+        
+        .panel { background-color: var(--panel-bg); border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow); }
+        .clusters-panel { width: 320px; flex-shrink: 0; max-height: 650px; overflow-y: auto; }
+        .right-panel { width: 400px; flex-shrink: 0; display: flex; flex-direction: column; gap: 24px; overflow-y: auto; }
+        
+        .canvas-container { flex: 1; display: flex; justify-content: center; align-items: flex-start; height: fit-content; overflow: hidden; }
+        
+        .cluster-list { margin-bottom: 20px; display: flex; flex-direction: column; gap: 8px; }
+        .cluster-item { cursor: pointer; padding: 12px 16px; border-radius: var(--radius); background-color: var(--bg-color); 
+            transition: all 0.2s ease; font-weight: 500; border: 1px solid var(--border-color); }
+        .cluster-item:hover { background-color: var(--hover-color); }
+        .cluster-item.active { background-color: var(--active-color); border-color: var(--primary-color); color: var(--primary-color); }
+        
+        .cluster-details { padding: 16px; background-color: var(--bg-color); border-radius: var(--radius); margin-bottom: 16px; display: none; border: 1px solid var(--border-color); }
+        .cluster-details.visible { display: block !important; }
+        .cluster-summary { margin-bottom: 12px; font-size: 0.9rem; line-height: 1.5; }
+        
+        .complaint-list { margin-top: 16px; max-height: 300px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
+        .complaint-item { padding: 12px; border: 1px solid var(--border-color); background-color: var(--panel-bg); border-radius: var(--radius); 
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05); font-size: 0.9rem; cursor: pointer; transition: all 0.2s; }
+        
+        .complaint-item:hover {
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            border-color: var(--primary-color);
+        }
+        
+        .complaint-header {
             display: flex;
-            flex-direction: row;
-            gap: 20px;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 4px;
         }
-        #canvas {
-            border: 2px solid #333;
+        
+        .complaint-header.expanded {
+            font-weight: bold;
+            color: var(--primary-color);
         }
-        .clusters-panel {
-            width: 300px;
-            flex-shrink: 0;
+        
+        .complaint-id {
+            font-size: 0.8rem;
+            color: #6b7280;
         }
-        .cluster-list {
-            margin-bottom: 20px;
+        
+        .expand-icon {
+            font-size: 0.8rem;
+            transition: transform 0.2s;
         }
-        .cluster-item {
-            cursor: pointer;
-            padding: 10px;
-            border: 1px solid #ccc;
-            margin-bottom: 5px;
-            background-color: #f9f9f9;
+        
+        .complaint-content {
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px dashed var(--border-color);
         }
-        .cluster-item:hover {
-            background-color: #e9e9e9;
+        
+        .complaint-text {
+            margin-bottom: 8px;
+            line-height: 1.4;
         }
-        .cluster-item.active {
-            background-color: #e0e0e0;
-            border-color: #999;
+        
+        .complaint-preview {
+            color: #6b7280;
+            font-size: 0.85rem;
+            line-height: 1.3;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 100%;
         }
-        .cluster-details {
-            padding: 15px;
-            background-color: #f5f5f5;
-            border: 1px solid #ddd;
-            margin-bottom: 10px;
-            display: none;
+        
+        .complaint-email, .complaint-name {
+            font-size: 0.8rem;
+            margin-top: 4px;
         }
-        .cluster-details.visible {
-            display: block !important;
-        }
-        .complaint-list {
-            margin-top: 20px;
-            max-height: 300px;
-            overflow-y: auto;
-        }
-        .complaint-item {
-            padding: 10px;
-            border: 1px solid #ddd;
-            margin-bottom: 5px;
-            background-color: #ffffff;
-            border-radius: 4px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        }
-        .right-panel {
-            width: 300px;
-            flex-shrink: 0;
-        }
-        .canvas-container {
-            flex: 1;
-            display: flex;
-            justify-content: center;
-            align-items: flex-start;
-            height: fit-content;
+        
+        .controls { display: flex; flex-direction: column; gap: 20px; }
+        .buttons { display: flex; flex-direction: column; gap: 12px; }
+        
+        button { padding: 12px 16px; font-size: 0.95rem; cursor: pointer; border: none; background-color: var(--primary-color); color: white; 
+            border-radius: var(--radius); font-weight: 500; transition: background-color 0.2s ease; }
+        button:hover { background-color: var(--secondary-color); }
+        
+        .text { display: flex; flex-direction: column; background-color: var(--bg-color); padding: 16px; border-radius: var(--radius); border: 1px solid var(--border-color); }
+        .text div { margin-top: 8px; font-size: 0.95rem; }
+        
+        .control-group { display: flex; flex-direction: column; gap: 12px; }
+        .control-group label { font-size: 0.95rem; }
+        
+        input[type="range"] { width: 100%; accent-color: var(--primary-color); height: 6px; border-radius: 6px; }
+        
+        .zoom-buttons { display: flex; gap: 10px; }
+        .zoom-buttons button { padding: 8px 16px; flex: 1; }
+        
+        .form-select { padding: 10px 14px; font-size: 0.95rem; border: 1px solid var(--border-color); border-radius: var(--radius); 
+            background-color: var(--bg-color); width: 100%; }
+        
+        .error-message { background-color: #fee2e2; color: #dc2626; padding: 12px; border-radius: var(--radius); margin-bottom: 20px; font-weight: 500; }
+        .no-clusters { padding: 16px; text-align: center; color: #6b7280; background-color: var(--bg-color); border-radius: var(--radius); border: 1px dashed var(--border-color); }
+        
+        /* Complaint Detail Styles */
+        .complaint-detail {
+            background-color: var(--bg-color);
+            border-radius: var(--radius);
+            border: 1px solid var(--border-color);
             overflow: hidden;
         }
-        #canvas {
-            max-height: 650px;
-            width: 800px;
-            height: 650px;
+        
+        .detail-title {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 12px 16px;
+            font-size: 1.1rem;
+            margin: 0;
         }
-        .controls {
-            margin-bottom: 20px;
+        
+        .detail-content {
+            padding: 16px;
         }
-        .text {
+        
+        .detail-row {
             display: flex;
-            flex-direction: column;
-            justify-content: flex-start;
-            background-color: #f5f5f5;
-            padding: 15px;
-            border-radius: 5px;
+            margin-bottom: 10px;
+            align-items: baseline;
         }
-        .text div {
-            margin-top: 10px;
-            font-family: Arial, sans-serif;
-            font-size: 16px;
-            color: #333;
+        
+        .detail-label {
+            font-weight: 600;
+            color: #4b5563;
+            width: 100px;
+            flex-shrink: 0;
         }
-        .buttons {
-            margin-top: 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
+        
+        .detail-value {
+            color: #111827;
         }
-        .buttons button {
-            margin-right: 10px;
-            padding: 10px 20px;
-            font-size: 16px;
-            cursor: pointer;
+        
+        .detail-fulltext {
+            margin-top: 12px;
         }
-        .step-control {
-            margin-top: 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-        .step-control label {
-            font-family: Arial, sans-serif;
-            font-size: 16px;
-            color: #333;
-        }
-        .step-control input[type="range"] {
-            width: 100%;
-        }
-        .zoom-control {
-            margin-top: 20px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-        .zoom-control label {
-            font-family: Arial, sans-serif;
-            font-size: 16px;
-            color: #333;
-        }
-        .zoom-buttons {
-            margin-top: 10px;
-            display: flex;
-            gap: 10px;
-        }
-        .zoom-buttons button {
-            padding: 5px;
-            font-size: 16px;
-            cursor: pointer;
-        }
-        .form-select {
-            padding: 10px 10px;
-            font-size: 16px;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-            background-color: #f9f9f9;
-            transition: border-color 0.3s;
-        }
-        .form-select:focus {
-            outline: none;
-        }
-        .form-select option {
-            padding: 10px;
-        }
-        .apply-tsne-button {
-            padding: 12px 24px;
-            font-size: 18px;
-            cursor: pointer;
-            border-radius: 5px;
-            transition: background-color 0.3s;
-        }
-        .apply-tsne-button:hover {
-            background-color: #aaacaf;
+        
+        .detail-text {
+            margin-top: 8px;
+            line-height: 1.5;
+            background-color: white;
+            padding: 12px;
+            border-radius: 6px;
+            border: 1px solid #e5e7eb;
+            max-height: 200px;
+            overflow-y: auto;
         }
     </style>
 </head>
 <body>
     <div id="app">
-        <!-- Error display -->
-        <div v-if="error" class="error-message" style="color: red; margin-bottom: 20px;">
-            [[ error ]]
-        </div>
+        <div v-if="error" class="error-message">[[ error ]]</div>
 
-        <!-- Left panel - Clusters -->
-        <div class="clusters-panel">
+        <div class="clusters-panel panel">
             <h2>Clusters ([[ totalClusters ]])</h2>
-            <div v-if="clusters.length === 0" class="no-clusters">
-                No clusters available
-            </div>
+            <div v-if="clusters.length === 0" class="no-clusters">No clusters available</div>
             <div class="cluster-list">
-                <div v-for="cluster in clusters" :key="cluster.id">
-                    <div 
-                        class="cluster-item"
-                        :class="{ active: selectedClusterId === cluster.id }"
-                        @click="toggleClusterDetails(cluster.id)">
-                        [[ cluster.id ]] - [[ cluster.name ]]
-                    </div>
-                    <div 
-                        class="cluster-details"
-                        :class="{ visible: selectedClusterId === cluster.id }"
-                        v-show="selectedClusterId === cluster.id">
-                        <div v-if="cluster.id === selectedClusterId && clusterDetails[cluster.id]">
-                            <div class="cluster-summary">[[ clusterDetails[cluster.id].summary ]]</div>
-                            <div class="model-info" style="margin-top: 10px; font-style: italic; color: #666;">
-                                Generated by: [[ clusterDetails[cluster.id].model ]]
-                            </div>
-                            <button 
-                                @click="regenerateSummary(cluster.id)" 
-                                class="regenerate-button"
-                                :disabled="isRegenerating === cluster.id"
-                                style="margin-top: 10px; padding: 8px 15px; cursor: pointer; background-color: #f0f0f0; border: 1px solid #ccc; border-radius: 4px; font-weight: bold;">
-                                [[ isRegenerating === cluster.id ? 'Regenerating...' : 'Regenerate summary' ]]
+                <div v-for="cluster in clusters" :key="cluster.id"
+                     :class="['cluster-item', { active: selectedClusterId === cluster.id }]"
+                     @click="toggleClusterDetails(cluster.id)">
+                    <div>[[ cluster.name ]]</div>
+                    <div class="cluster-details" :class="{ visible: selectedClusterId === cluster.id }">
+                        <div class="cluster-summary">
+                            <p><strong>Summary:</strong> [[ clusterDetails[cluster.id]?.summary || cluster.summary ]]</p>
+                            <p v-if="clusterDetails[cluster.id]?.model"><strong>Model:</strong> [[ clusterDetails[cluster.id].model ]]</p>
+                            <button @click.stop="regenerateSummary(cluster.id)" 
+                                    :disabled="isRegenerating === cluster.id">
+                                [[ isRegenerating === cluster.id ? 'Regenerating...' : 'Regenerate Summary' ]]
                             </button>
-                            <div class="complaint-list">
-                                <div v-for="complaint in clusterDetails[cluster.id].complaints" 
-                                     :key="complaint.id" 
-                                     class="complaint-item">
-                                    <strong>[[ complaint.name ]]:</strong> [[ complaint.text ]]
+                        </div>
+                        <div v-if="clusterDetails[cluster.id]?.complaints" class="complaint-list">
+                            <div v-for="complaint in clusterDetails[cluster.id].complaints" 
+                                :key="complaint.id" 
+                                class="complaint-item"
+                                @click.stop="toggleComplaintExpand(complaint)">
+                                <div class="complaint-header" :class="{ 'expanded': complaint.expanded }">
+                                    <span class="complaint-id">ID: [[ complaint.id ]]</span>
+                                    <span class="expand-icon">[[ complaint.expanded ? '▼' : '▶' ]]</span>
+                                </div>
+                                <div v-if="complaint.expanded" class="complaint-content">
+                                    <div class="complaint-text">[[ complaint.text ]]</div>
+                                    <div v-if="complaint.email" class="complaint-email"><strong>Email:</strong> [[ complaint.email ]]</div>
+                                    <div v-if="complaint.name" class="complaint-name"><strong>Name:</strong> [[ complaint.name ]]</div>
+                                </div>
+                                <div v-else class="complaint-preview">
+                                    [[ complaint.text.length > 100 ? complaint.text.substring(0, 100) + '...' : complaint.text ]]
                                 </div>
                             </div>
                         </div>
@@ -217,61 +222,59 @@
             </div>
         </div>
 
-        <!-- Center - Canvas -->
         <div class="canvas-container">
             <canvas ref="canvas" id="canvas" width="800" height="650"></canvas>
         </div>
 
-        <!-- Right panel -->
-        <div class="right-panel">
+        <div class="right-panel panel">
             <div class="controls">
-                <div class="buttons">
-                    <button @click="sendSelected">Отправить выделенные</button>
-                    <button @click="resetSelection">Сбросить выделение</button>
-                </div>
-                <div class="step-control">
-                    <label for="stepRange">Perplexity (2 - 150): [[ step ]]</label>
-                    <input type="range" id="stepRange" v-model.number="step" min="2" max="150">
-                    <button @click="applyTsne" class="apply-tsne-button">Apply t-SNE</button>
-                </div>
-                <div class="mb-3" style="margin-top: 20px;">
-                    <label for="modelSelect" style="font-family: Arial, sans-serif; font-size: 16px; color: #333;">Выберите модель:</label>
-                    <select id="modelSelect" class="form-select mb-3" v-model="model">
-                        <option v-for="option in availableModels"
-                                :key="option"
-                                :value="option">
-                            [[ option ]]
-                        </option>
-                    </select>
-                </div>
-            </div>
-
-            <div class="text" v-if="currentPoint.email">
-                <div>Email: [[ currentPoint.email ]]</div>
-                <div>Cluster: [[ currentPoint.cluster ]]</div>
-                <div>Name: [[ currentPoint.name ]]</div>
-                <div>Text: [[ currentPoint.info ]]</div>
-            </div>
-
-            <div class="zoom-control">
-                <label>Zoom: [[ (scale * 100).toFixed(0) ]]%</label>
                 <div class="zoom-buttons">
                     <button @click="zoom(1.2)">+</button>
                     <button @click="zoom(0.8)">-</button>
-                    <button @click="resetView">Reset View</button>
+                    <button @click="resetView" style="background-color: #6b7280;">Reset View</button>
+                </div>
+                <div class="control-group">
+                    <label for="modelSelect">Выберите модель:</label>
+                    <select id="modelSelect" class="form-select" v-model="model">
+                        <option v-for="option in availableModels" :key="option" :value="option">[[ option ]]</option>
+                    </select>
+                </div>
+                <div class="buttons">
+                    <button @click="sendSelected">Отправить выделенные</button>
+                    <button @click="resetSelection" style="background-color: #6b7280;">Сбросить выделение</button>
+                </div>
+            </div>
+            <div v-if="currentPoint.email" class="complaint-detail">
+                <h3 class="detail-title">Selected Complaint</h3>
+                <div class="detail-content">
+                    <div class="detail-row">
+                        <span class="detail-label">Email:</span>
+                        <span class="detail-value">[[ currentPoint.email ]]</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Cluster:</span>
+                        <span class="detail-value">[[ currentPoint.cluster ]]</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Name:</span>
+                        <span class="detail-value">[[ currentPoint.name ]]</span>
+                    </div>
+                    <div class="detail-fulltext">
+                        <div class="detail-label">Text:</div>
+                        <div class="detail-text">[[ currentPoint.info ]]</div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
     <script>
-        // Initialize data with proper error handling
+        const { createApp } = Vue;
+
         window.djangoData = {
             totalClusters: parseInt('{{ total_clusters|default:"0" }}'),
             clusters: JSON.parse('{{ clusters|default:"[]"|escapejs }}')
         };
-
-        const { createApp } = Vue;
 
         class Point {
             constructor(id, x, y, info, email, name, cluster) {
@@ -310,7 +313,6 @@
                     isDrawing: false,
                     startX: 0,
                     startY: 0,
-                    selectedPoints: [],
                     step: 5,
                     currentPoint: {},
                     pointRadius: 3,
@@ -332,57 +334,23 @@
                 }
             },
             mounted() {
-                console.log('Vue app mounted');
-                console.log('Initial data:', window.djangoData);
                 this.initializeCanvas();
                 this.fetchPoints();
             },
             methods: {
+                // Canvas methods
                 initializeCanvas() {
                     const canvas = this.$refs.canvas;
-                    if (!canvas) {
-                        console.error('Canvas element not found');
-                        return;
-                    }
+                    if (!canvas) return;
                     
                     this.ctx = canvas.getContext('2d');
-                    if (!this.ctx) {
-                        console.error('Could not get 2D context');
-                        return;
-                    }
+                    if (!this.ctx) return;
                     
                     this.setupCanvasEvents();
                 },
-                async fetchPoints() {
-                    try {
-                        const response = await fetch('/api/complaints');
-                        if (!response.ok) {
-                            throw new Error(`HTTP error! status: ${response.status}`);
-                        }
-                        const data = await response.json();
-                        if (!Array.isArray(data)) {
-                            throw new Error('Invalid data format received');
-                        }
-                        this.points = data.map(point => new Point(
-                            point.id,
-                            point.x,
-                            point.y,
-                            point.text,
-                            point.email,
-                            point.name,
-                            point.cluster
-                        ));
-                        this.drawPoints();
-                    } catch (error) {
-                        console.error('Error fetching points:', error);
-                        this.error = 'Failed to load points: ' + error.message;
-                    }
-                },
+                
                 drawPoints() {
-                    if (!this.ctx) {
-                        console.error('Canvas context not initialized');
-                        return;
-                    }
+                    if (!this.ctx) return;
 
                     const canvas = this.$refs.canvas;
                     this.ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -394,24 +362,23 @@
                     this.points.forEach(point => {
                         this.ctx.beginPath();
                         this.ctx.arc(point.x, point.y, this.pointRadius / this.scale, 0, Math.PI * 2);
-                        this.ctx.fillStyle = point.selected ? 'red' : (point.highlighted ? 'green' : 'rgba(0, 0, 255, 0.25)');
+                        this.ctx.fillStyle = point.selected ? '#ef4444' : (point.highlighted ? '#10b981' : 'rgba(79, 70, 229, 0.4)');
                         this.ctx.fill();
-                        this.ctx.closePath();
                     });
                     
                     this.ctx.restore();
                 },
+                
                 screenToCanvas(screenX, screenY) {
                     return {
                         x: (screenX - this.offsetX) / this.scale,
                         y: (screenY - this.offsetY) / this.scale
                     };
                 },
+                
                 zoom(factor, centerX, centerY) {
                     const oldScale = this.scale;
-                    this.scale *= factor;
-                    
-                    this.scale = Math.max(0.1, Math.min(10, this.scale));
+                    this.scale = Math.max(0.1, Math.min(10, this.scale * factor));
                     
                     if (centerX !== undefined && centerY !== undefined) {
                         const scaleFactor = this.scale / oldScale;
@@ -421,32 +388,34 @@
                     
                     this.drawPoints();
                 },
+                
                 resetView() {
                     this.scale = 1;
                     this.offsetX = 0;
                     this.offsetY = 0;
                     this.drawPoints();
                 },
+                
                 setupCanvasEvents() {
                     const canvas = this.$refs.canvas;
                     
+                    // Zoom with wheel
                     canvas.addEventListener('wheel', (e) => {
                         e.preventDefault();
                         const rect = canvas.getBoundingClientRect();
                         const mouseX = e.clientX - rect.left;
                         const mouseY = e.clientY - rect.top;
                         
-                        const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
-                        this.zoom(zoomFactor, mouseX, mouseY);
+                        this.zoom(e.deltaY < 0 ? 1.1 : 0.9, mouseX, mouseY);
                     });
                     
+                    // Click point
                     canvas.addEventListener('click', (e) => {
                         if (this.isPanning) return;
                         
                         const rect = canvas.getBoundingClientRect();
                         const screenX = e.clientX - rect.left;
                         const screenY = e.clientY - rect.top;
-                        
                         const canvasPoint = this.screenToCanvas(screenX, screenY);
                         
                         this.points.forEach(point => {
@@ -464,10 +433,10 @@
                         this.drawPoints();
                     });
                     
-                    canvas.addEventListener('contextmenu', (e) => {
-                        e.preventDefault();
-                    });
+                    // Context menu
+                    canvas.addEventListener('contextmenu', e => e.preventDefault());
                     
+                    // Mouse down
                     canvas.addEventListener('mousedown', (e) => {
                         const rect = canvas.getBoundingClientRect();
                         const screenX = e.clientX - rect.left;
@@ -486,6 +455,7 @@
                         }
                     });
                     
+                    // Mouse move
                     canvas.addEventListener('mousemove', (e) => {
                         const rect = canvas.getBoundingClientRect();
                         const screenX = e.clientX - rect.left;
@@ -516,13 +486,13 @@
                             canvasPoint.x - this.startX, 
                             canvasPoint.y - this.startY
                         );
-                        this.ctx.strokeStyle = 'blue';
+                        this.ctx.strokeStyle = '#4361ee';
                         this.ctx.stroke();
-                        this.ctx.closePath();
                         
                         this.ctx.restore();
                     });
                     
+                    // Mouse up
                     canvas.addEventListener('mouseup', (e) => {
                         if (this.isPanning) {
                             this.isPanning = false;
@@ -554,16 +524,36 @@
                         this.drawPoints();
                     });
                     
+                    // Mouse leave
                     canvas.addEventListener('mouseleave', () => {
                         this.isPanning = false;
                         this.isDrawing = false;
                         canvas.style.cursor = 'default';
                     });
                 },
+                
+                // API methods
+                async fetchPoints() {
+                    try {
+                        const response = await fetch('/api/complaints');
+                        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                        
+                        const data = await response.json();
+                        if (!Array.isArray(data)) throw new Error('Invalid data format received');
+                        
+                        this.points = data.map(point => new Point(
+                            point.id, point.x, point.y, point.text,
+                            point.email, point.name, point.cluster
+                        ));
+                        this.drawPoints();
+                    } catch (error) {
+                        console.error('Error fetching points:', error);
+                        this.error = 'Failed to load points: ' + error.message;
+                    }
+                },
+                
                 async sendSelected() {
-                    const selectedIds = this.points
-                        .filter(p => p.selected)
-                        .map(p => p.id);
+                    const selectedIds = this.points.filter(p => p.selected).map(p => p.id);
 
                     if (!selectedIds.length) {
                         alert("Выберите хотя бы одну жалобу!");
@@ -579,8 +569,8 @@
 
                         if (response.ok) {
                             const data = await response.json();
+                            await this.updateClustersPanel();
                             alert(`Кластер успешно создан! ID: ${data.cluster_id}`);
-                            location.reload();
                         } else {
                             alert("Ошибка при создании кластера");
                         }
@@ -589,11 +579,38 @@
                         alert("Произошла ошибка при отправке данных");
                     }
                 },
+                
+                async updateClustersPanel() {
+                    try {
+                        const response = await fetch('/api/clusters/');
+                        if (!response.ok) throw new Error('Failed to fetch clusters');
+                        
+                        const clusters = await response.json();
+                        
+                        this.totalClusters = clusters.length;
+                        this.clusters = clusters.map(cluster => ({
+                            id: cluster.id,
+                            name: cluster.name,
+                            summary: cluster.summary
+                        }));
+                        
+                        this.selectedClusterId = null;
+                        this.clusterDetails = {};
+                        
+                        this.points.forEach(point => point.highlighted = false);
+                        this.drawPoints();
+                    } catch (error) {
+                        console.error('Error updating clusters panel:', error);
+                        this.error = 'Failed to update clusters: ' + error.message;
+                    }
+                },
+                
                 resetSelection() {
                     this.points.forEach(p => p.selected = false);
                     this.currentPoint = {};
                     this.drawPoints();
                 },
+                
                 async applyTsne() {
                     try {
                         const response = await fetch('/api/apply-tsne/', {
@@ -604,7 +621,7 @@
 
                         if (response.ok) {
                             alert("Функция apply_tsne вызвана успешно!");
-                            await this.fetchPoints()
+                            await this.fetchPoints();
                         } else {
                             alert("Ошибка при вызове apply_tsne");
                         }
@@ -613,9 +630,8 @@
                         alert("Произошла ошибка при отправке запроса");
                     }
                 },
+                
                 async toggleClusterDetails(clusterId) {
-                    console.log('Toggling cluster details for:', clusterId);
-                    
                     if (this.selectedClusterId === clusterId) {
                         this.selectedClusterId = null;
                         this.points.forEach(point => {
@@ -628,16 +644,17 @@
                         
                         if (!this.clusterDetails[clusterId]) {
                             try {
-                                console.log('Fetching details for cluster:', clusterId);
                                 const response = await fetch(`/api/clusters/${clusterId}/details/`);
-                                
-                                if (!response.ok) {
-                                    console.error('Server response not ok:', response.status);
-                                    throw new Error(`Failed to fetch cluster details: ${response.statusText}`);
-                                }
+                                if (!response.ok) throw new Error(`Failed to fetch cluster details: ${response.statusText}`);
                                 
                                 const data = await response.json();
-                                console.log('Received cluster data:', data);
+                                
+                                // Add expanded property to each complaint
+                                if (data.complaints) {
+                                    data.complaints.forEach(complaint => {
+                                        complaint.expanded = false;
+                                    });
+                                }
                                 
                                 this.clusterDetails[clusterId] = {
                                     summary: data.summary || cluster.summary,
@@ -651,14 +668,16 @@
                             }
                         }
 
-                        this.points.forEach(point => {
-                            point.highlighted = point.cluster === clusterId;
-                        });
-
-                        this.$forceUpdate();
+                        this.points.forEach(point => point.highlighted = point.cluster === clusterId);
                     }
                     this.drawPoints();
                 },
+                
+                toggleComplaintExpand(complaint) {
+                    // Toggle the expanded state
+                    complaint.expanded = !complaint.expanded;
+                },
+                
                 async regenerateSummary(clusterId) {
                     try {
                         this.isRegenerating = clusterId;
@@ -670,12 +689,10 @@
 
                         if (response.ok) {
                             const data = await response.json();
-                            console.log('Regenerated cluster data:', data);
                             
                             // Update the cluster in the clusters array
                             const clusterIndex = this.clusters.findIndex(c => c.id === clusterId);
                             if (clusterIndex !== -1) {
-                                // Vue 3 has improved reactivity, we can directly update
                                 this.clusters[clusterIndex] = {
                                     ...this.clusters[clusterIndex],
                                     name: data.name,
@@ -688,12 +705,9 @@
                                 this.clusterDetails[clusterId] = {
                                     ...this.clusterDetails[clusterId],
                                     summary: data.summary,
-                                    model: data.model  // Update model if it's returned
+                                    model: data.model
                                 };
                             }
-                            
-                            // Make sure the UI is updated
-                            this.$forceUpdate();
                             
                             alert("Суммаризация кластера успешно обновлена!");
                         } else {

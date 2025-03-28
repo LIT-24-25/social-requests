@@ -14,6 +14,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.core.management import call_command
 from django.http import HttpResponse
 from django.core.serializers import serialize
+from clusters.views import ClusterListCreate
 
 
 class ComplaintListCreate(generics.ListCreateAPIView):
@@ -67,7 +68,11 @@ def create_complaint(request):
     return render(request, 'create_complaint.html')
 
 def visual_view(request):
-    clusters = Cluster.objects.all()
+    # Get clusters using ClusterListCreate API
+    cluster_view = ClusterListCreate()
+    cluster_view.request = request
+    clusters = cluster_view.get_queryset()
+    
     clusters_data = json.dumps([{
         'id': cluster.id,
         'name': cluster.name,
