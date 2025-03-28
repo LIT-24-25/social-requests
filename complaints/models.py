@@ -3,6 +3,10 @@ from clusters.models import Cluster
 from gigachat import GigaChat
 from gigachat.exceptions import GigaChatException
 from clusters.instances import gigachat_token
+from typing import List, Dict, Tuple
+import logging
+
+logger = logging.getLogger(__name__)
 
 class Complaint(models.Model):
     email = models.CharField(max_length=100, default='No Email')
@@ -19,51 +23,58 @@ class Complaint(models.Model):
         null=True,
         default=None)
 
-    def generate_embedding(self, text=None, giga_client=None, raise_error=False):
-        """
-        Генерирует эмбеддинг для текста и сохраняет его в модели.
-        
-        Args:
-            text (str, optional): Текст для эмбеддинга. Если None, используется self.text.
-            giga_client (GigaChat, optional): Клиент GigaChat. Если None, создается новый.
-            raise_error (bool): Нужно ли выбрасывать исключение при ошибке или обрабатывать тихо.
-            
-        Returns:
-            bool: True если эмбеддинг успешно создан, False в случае ошибки.
-            
-        Raises:
-            GigaChatException: Если raise_error=True и произошла ошибка при генерации.
-        """
-        # Если эмбеддинг уже есть и не передан новый текст, возвращаем успех
-        if self.embedding and text is None:
-            return True
-            
+    def call_gigachat_embeddings(self, text, giga_client):
         try:
-            # Определяем текст
-            text_to_embed = text if text is not None else self.text
-            
-            # Проверяем валидность текста
-            if not text_to_embed or not isinstance(text_to_embed, str):
+            # Проверяем, что text не пустой
+            if not text or not isinstance(text, str):
                 raise ValueError("Text must be a non-empty string")
             
-            # Определяем клиент
-            client = giga_client
-            if client is None:
-                client = GigaChat(credentials=gigachat_token, verify_ssl_certs=False)
-            
-            # Получаем эмбеддинги
-            response = client.embeddings(text_to_embed)
+            response = giga_client.embeddings(text)
             self.embedding = response.data[0].embedding
-            return True
-            
         except Exception as e:
-            if raise_error:
-                raise GigaChatException(f"Ошибка генерации эмбеддингов: {str(e)}")
-            else:
-                print(f"Ошибка при получении эмбеддингов: {str(e)}")
-                self.embedding = None
-                return False
+            raise GigaChatException(f"Ошибка генерации: {str(e)}")
     
+    @staticmethod
+    def batch_process_embeddings(complaints: List['Complaint'], texts: List[str], giga_client) -> List['Complaint']:
+        """
+        Process embeddings for multiple complaints in a batch.
+        
+        Args:
+            complaints (List[Complaint]): List of complaint objects to process
+            texts (List[str]): List of complaint texts for embedding
+            giga_client: GigaChat client instance
+            
+        Returns:
+            List[Complaint]: List of processed complaints with embeddings
+        """
+        if len(complaints) != len(texts):
+            raise ValueError("Length of complaints and texts must match")
+        
+        if not complaints:
+            return []
+            
+        processed_complaints = []
+
+        batch_response = giga_client.embeddings(texts)
+        for i, (complaint, text) in enumerate(zip(complaints, texts)):
+            complaint.embedding = batch_response.data[i].embedding
+            processed_complaints.append(complaint)
+            
+        logger.info(f"Batch processed {len(complaints)} complaints for embeddings")
+        return processed_complaints
+
     def save(self, *args, **kwargs):
-        # Упрощенная функция save, которая только сохраняет модель
+        if not self.embedding:
+            try:
+                # Инициализируем GigaChat с токеном
+                gigachat = GigaChat(credentials=gigachat_token, verify_ssl_certs=False)
+                
+                # Получаем эмбеддинги
+                response = gigachat.embeddings(self.text)
+                self.embedding = response.data[0].embedding
+            except Exception as e:
+                print(f"Ошибка при получении эмбеддингов: {str(e)}")
+                # Временно сохраняем без эмбеддингов
+                self.embedding = None
+        
         super().save(*args, **kwargs)

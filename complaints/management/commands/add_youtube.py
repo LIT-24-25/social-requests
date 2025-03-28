@@ -2,7 +2,7 @@ from django.core.management.base import BaseCommand, CommandError
 from django.conf import settings
 from googleapiclient.discovery import build
 from urllib.parse import urlparse, parse_qs
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Tuple
 from complaints.models import Complaint
 from gigachat import GigaChat
 from clusters.instances import youtube_api_key, gigachat_token
@@ -22,6 +22,12 @@ class Command(BaseCommand):
             type=int,
             default=300,
             help='Maximum number of comments to retrieve (default: 100)'
+        )
+        parser.add_argument(
+            '--batch-size',
+            type=int,
+            default=50,
+            help='Number of comments to process in one batch (default: 50)'
         )
 
     def get_video_id(self, url: str) -> Optional[str]:
@@ -158,49 +164,137 @@ class Command(BaseCommand):
         except Exception as e:
             raise Exception(f"Error fetching comments: {str(e)}")
 
+    def prepare_batches(self, comments: List[Dict], batch_size: int) -> Tuple[List[Complaint], List[str]]:
+        """
+        Prepare batches of complaints and their text for batch embedding processing.
+        
+        Args:
+            comments (List[Dict]): List of comment dictionaries
+            batch_size (int): Size of each batch
+            
+        Returns:
+            Tuple[List[Complaint], List[str]]: Tuple containing list of complaint objects and 
+                                              list of their texts for batch processing
+        """
+        complaints = []
+        texts = []
+        
+        for comment in tqdm(comments, desc="Preparing complaints", unit="comment"):
+            try:
+                complaint = Complaint(
+                    name=comment['name'],
+                    email=comment['email'],
+                    text=comment['text'],
+                    x=random.randint(0, 100),
+                    y=random.randint(0, 100)
+                )
+                complaints.append(complaint)
+                texts.append(comment['text'])
+            except Exception as e:
+                logger.error(f"Error creating complaint for {comment['name']}: {str(e)}")
+                continue
+        
+        return complaints, texts
+
+    def process_batches(self, complaints, texts, batch_size):
+        """
+        Process complaints in batches for more efficient embedding generation.
+        
+        Args:
+            complaints (List[Complaint]): List of complaint objects
+            texts (List[str]): List of complaint texts for embedding
+            batch_size (int): Size of each batch
+            
+        Returns:
+            List[Complaint]: List of processed complaints with embeddings
+        """
+        processed_complaints = []
+        
+        # Process in batches
+        batches = [
+            (complaints[i:i + batch_size], texts[i:i + batch_size])
+            for i in range(0, len(complaints), batch_size)
+        ]
+        
+        logger.info(f"Processing {len(complaints)} complaints in {len(batches)} batches of {batch_size}")
+        
+        # Initialize GigaChat client once
+        giga_client = GigaChat(credentials=gigachat_token, verify_ssl_certs=False)
+        
+        # Create progress bar for batch processing
+        batch_pbar = tqdm(batches, desc="Processing batches", unit="batch")
+        
+        for batch_index, (complaint_batch, text_batch) in enumerate(batch_pbar, 1):
+            batch_pbar.set_description(f"Processing batch {batch_index}/{len(batches)}")
+            
+            try:
+                # Use the static method for batch processing
+                processed_batch = Complaint.batch_process_embeddings(
+                    complaint_batch, text_batch, giga_client
+                )
+                processed_complaints.extend(processed_batch)
+                logger.info(f"Successfully processed batch {batch_index}/{len(batches)}")
+            except Exception as e:
+                logger.error(f"Error processing batch {batch_index}: {str(e)}")
+                # Continue with next batch even if this one fails
+                continue
+            
+        return processed_complaints
+
     def handle(self, *args, **options):
         """
         Main command handler.
         """
         video_url = options['video_url']
         max_results = options['max_results']
+        batch_size = options['batch_size']
 
         logger.info("Starting YouTube comments processing")
+        
+        # Create a progress bar for tracking overall progress
+        overall_progress = tqdm(total=4, desc="Overall process", position=0)
+        
         try:
+            # Fetch comments from YouTube
+            overall_progress.set_description("Fetching YouTube comments")
             comments = self.get_youtube_comments(video_url, max_results)
             logger.info(f"Successfully retrieved {len(comments)} total comments")
+            overall_progress.update(1)
             
-            giga_client = GigaChat(credentials=gigachat_token, verify_ssl_certs=False)
-            logger.info("Connected to GigaChat service")
+            # Prepare batches of complaints and their texts
+            overall_progress.set_description("Preparing complaint batches")
+            complaints, texts = self.prepare_batches(comments, batch_size)
+            logger.info(f"Prepared {len(complaints)} complaints for batch processing")
+            overall_progress.update(1)
             
-            success_count = 0
-            complaints_to_create = []
-            for i, comment in enumerate(tqdm(comments, desc="Processing comments", unit="comment"), 1):
-                try:
-                    complaint = Complaint(
-                        name=comment['name'],
-                        email=comment['email'],
-                        text=comment['text'],
-                        x=random.randint(0, 100),
-                        y=random.randint(0, 100)
-                    )
-                    complaint.generate_embedding(giga_client=giga_client, raise_error=True)
-                    complaints_to_create.append(complaint)
-                    logger.debug(f"Processed comment {i}/{len(comments)} from user {comment['name']}")
-                except Exception as e:
-                    logger.error(f"Error processing comment {i} from {comment['name']}: {str(e)}")
-                    continue
+            # Process batches
+            overall_progress.set_description("Processing complaint batches")
+            processed_complaints = self.process_batches(complaints, texts, batch_size)
+            logger.info(f"Successfully processed {len(processed_complaints)} complaints with embeddings")
+            overall_progress.update(1)
             
-            if complaints_to_create:
-                created_complaints = Complaint.objects.bulk_create(complaints_to_create, batch_size=100)
+            # Save processed complaints to database
+            overall_progress.set_description("Saving to database")
+            if processed_complaints:
+                created_complaints = Complaint.objects.bulk_create(processed_complaints, batch_size=100)
                 success_count = len(created_complaints)
+                logger.info(f"Saved {success_count} complaints to database")
+            else:
+                success_count = 0
+                logger.warning("No complaints were processed successfully")
+            overall_progress.update(1)
+            
+            # Close the progress bar
+            overall_progress.close()
             
             logger.info("Completed processing all YouTube comments")
             self.stdout.write(
                 self.style.SUCCESS(
-                    f'Successfully imported {success_count} out of {len(comments)} comments'
+                    f'Successfully imported {success_count} out of {len(complaints)} comments'
                 )
             )
         except Exception as e:
+            # Make sure to close the progress bar on error
+            overall_progress.close()
             logger.error(f"Failed to process YouTube comments: {str(e)}")
             raise CommandError(str(e)) 
