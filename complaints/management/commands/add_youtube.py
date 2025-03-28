@@ -184,7 +184,7 @@ class Command(BaseCommand):
                         x=random.randint(0, 100),
                         y=random.randint(0, 100)
                     )
-                    complaint.call_gigachat_embeddings(complaint.text, giga_client)
+                    complaint.generate_embedding(giga_client=giga_client, raise_error=True)
                     complaints_to_create.append(complaint)
                     logger.debug(f"Processed comment {i}/{len(comments)} from user {comment['name']}")
                 except Exception as e:

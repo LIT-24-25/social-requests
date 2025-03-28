@@ -112,5 +112,5 @@ class Command(BaseCommand):
             y=random.randint(0, 100))
 
         # Явный вызов генерации эмбеддингов
-        complaint.call_gigachat_embeddings(complaint.text, giga_client)
+        complaint.generate_embedding(giga_client=giga_client, raise_error=True)
         return complaint

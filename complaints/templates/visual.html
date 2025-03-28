@@ -19,326 +19,83 @@
             --radius: 8px;
         }
         
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background-color: var(--bg-color); color: var(--text-color); line-height: 1.5; padding: 20px; }
+        h2 { font-weight: 600; font-size: 1.5rem; margin-bottom: 16px; color: #111827; }
         
-        body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-color);
-            line-height: 1.5;
-            padding: 20px;
-        }
+        #app { display: flex; flex-direction: row; gap: 24px; max-width: 1600px; margin: 0 auto; }
+        #canvas { border-radius: var(--radius); background-color: var(--panel-bg); box-shadow: var(--shadow); border: none; max-height: 650px; width: 800px; height: 650px; }
         
-        h2 {
-            font-weight: 600;
-            font-size: 1.5rem;
-            margin-bottom: 16px;
-            color: #111827;
-        }
+        .panel { background-color: var(--panel-bg); border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow); }
+        .clusters-panel { width: 320px; flex-shrink: 0; max-height: 650px; overflow-y: auto; }
+        .right-panel { width: 320px; flex-shrink: 0; display: flex; flex-direction: column; gap: 24px; }
         
-        #app {
-            display: flex;
-            flex-direction: row;
-            gap: 24px;
-            max-width: 1600px;
-            margin: 0 auto;
-        }
+        .canvas-container { flex: 1; display: flex; justify-content: center; align-items: flex-start; height: fit-content; overflow: hidden; }
         
-        #canvas {
-            border-radius: var(--radius);
-            background-color: var(--panel-bg);
-            box-shadow: var(--shadow);
-            border: none;
-        }
+        .cluster-list { margin-bottom: 20px; display: flex; flex-direction: column; gap: 8px; }
+        .cluster-item { cursor: pointer; padding: 12px 16px; border-radius: var(--radius); background-color: var(--bg-color); 
+            transition: all 0.2s ease; font-weight: 500; border: 1px solid var(--border-color); }
+        .cluster-item:hover { background-color: var(--hover-color); }
+        .cluster-item.active { background-color: var(--active-color); border-color: var(--primary-color); color: var(--primary-color); }
         
-        .clusters-panel {
-            width: 320px;
-            flex-shrink: 0;
-            background-color: var(--panel-bg);
-            border-radius: var(--radius);
-            padding: 20px;
-            box-shadow: var(--shadow);
-            height: fit-content;
-            max-height: 650px;
-            overflow-y: auto;
-        }
+        .cluster-details { padding: 16px; background-color: var(--bg-color); border-radius: var(--radius); margin-bottom: 16px; display: none; border: 1px solid var(--border-color); }
+        .cluster-details.visible { display: block !important; }
+        .cluster-summary { margin-bottom: 12px; font-size: 0.9rem; line-height: 1.5; }
         
-        .cluster-list {
-            margin-bottom: 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
+        .complaint-list { margin-top: 16px; max-height: 300px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
+        .complaint-item { padding: 12px; border: 1px solid var(--border-color); background-color: var(--panel-bg); border-radius: var(--radius); 
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05); font-size: 0.9rem; }
         
-        .cluster-item {
-            cursor: pointer;
-            padding: 12px 16px;
-            border-radius: var(--radius);
-            background-color: var(--bg-color);
-            transition: all 0.2s ease;
-            font-weight: 500;
-            border: 1px solid var(--border-color);
-        }
+        .controls { display: flex; flex-direction: column; gap: 20px; }
+        .buttons { display: flex; flex-direction: column; gap: 12px; }
         
-        .cluster-item:hover {
-            background-color: var(--hover-color);
-        }
+        button { padding: 12px 16px; font-size: 0.95rem; cursor: pointer; border: none; background-color: var(--primary-color); color: white; 
+            border-radius: var(--radius); font-weight: 500; transition: background-color 0.2s ease; }
+        button:hover { background-color: var(--secondary-color); }
         
-        .cluster-item.active {
-            background-color: var(--active-color);
-            border-color: var(--primary-color);
-            color: var(--primary-color);
-        }
+        .text { display: flex; flex-direction: column; background-color: var(--bg-color); padding: 16px; border-radius: var(--radius); border: 1px solid var(--border-color); }
+        .text div { margin-top: 8px; font-size: 0.95rem; }
         
-        .cluster-details {
-            padding: 16px;
-            background-color: var(--bg-color);
-            border-radius: var(--radius);
-            margin-bottom: 16px;
-            display: none;
-            border: 1px solid var(--border-color);
-        }
+        .control-group { display: flex; flex-direction: column; gap: 12px; }
+        .control-group label { font-size: 0.95rem; }
         
-        .cluster-details.visible {
-            display: block !important;
-        }
+        input[type="range"] { width: 100%; accent-color: var(--primary-color); height: 6px; border-radius: 6px; }
         
-        .cluster-summary {
-            margin-bottom: 12px;
-            font-size: 0.9rem;
-            line-height: 1.5;
-        }
+        .zoom-buttons { display: flex; gap: 10px; }
+        .zoom-buttons button { padding: 8px 16px; flex: 1; }
         
-        .complaint-list {
-            margin-top: 16px;
-            max-height: 300px;
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
+        .form-select { padding: 10px 14px; font-size: 0.95rem; border: 1px solid var(--border-color); border-radius: var(--radius); 
+            background-color: var(--bg-color); width: 100%; }
         
-        .complaint-item {
-            padding: 12px;
-            border: 1px solid var(--border-color);
-            background-color: var(--panel-bg);
-            border-radius: var(--radius);
-            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-            font-size: 0.9rem;
-        }
-        
-        .right-panel {
-            width: 320px;
-            flex-shrink: 0;
-            background-color: var(--panel-bg);
-            border-radius: var(--radius);
-            padding: 20px;
-            box-shadow: var(--shadow);
-            display: flex;
-            flex-direction: column;
-            gap: 24px;
-        }
-        
-        .canvas-container {
-            flex: 1;
-            display: flex;
-            justify-content: center;
-            align-items: flex-start;
-            height: fit-content;
-            overflow: hidden;
-        }
-        
-        #canvas {
-            max-height: 650px;
-            width: 800px;
-            height: 650px;
-        }
-        
-        .controls {
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-        }
-        
-        .text {
-            display: flex;
-            flex-direction: column;
-            justify-content: flex-start;
-            background-color: var(--bg-color);
-            padding: 16px;
-            border-radius: var(--radius);
-            border: 1px solid var(--border-color);
-        }
-        
-        .text div {
-            margin-top: 8px;
-            font-size: 0.95rem;
-        }
-        
-        .buttons {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
-        
-        button {
-            padding: 12px 16px;
-            font-size: 0.95rem;
-            cursor: pointer;
-            border: none;
-            background-color: var(--primary-color);
-            color: white;
-            border-radius: var(--radius);
-            font-weight: 500;
-            transition: background-color 0.2s ease;
-        }
-        
-        button:hover {
-            background-color: var(--secondary-color);
-        }
-        
-        .step-control {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
-        
-        .step-control label {
-            font-size: 0.95rem;
-        }
-        
-        input[type="range"] {
-            width: 100%;
-            accent-color: var(--primary-color);
-            height: 6px;
-            border-radius: 6px;
-        }
-        
-        .zoom-control {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
-        
-        .zoom-control label {
-            font-size: 0.95rem;
-            text-align: center;
-        }
-        
-        .zoom-buttons {
-            display: flex;
-            gap: 10px;
-        }
-        
-        .zoom-buttons button {
-            padding: 8px 16px;
-            flex: 1;
-        }
-        
-        .form-select {
-            padding: 10px 14px;
-            font-size: 0.95rem;
-            border: 1px solid var(--border-color);
-            border-radius: var(--radius);
-            background-color: var(--bg-color);
-            transition: border-color 0.2s ease;
-            width: 100%;
-        }
-        
-        .form-select:focus {
-            outline: none;
-            border-color: var(--primary-color);
-        }
-        
-        .apply-tsne-button {
-            margin-top: 8px;
-        }
-        
-        .error-message {
-            background-color: #fee2e2;
-            color: #dc2626;
-            padding: 12px;
-            border-radius: var(--radius);
-            margin-bottom: 20px;
-            font-weight: 500;
-        }
-        
-        .no-clusters {
-            padding: 16px;
-            text-align: center;
-            color: #6b7280;
-            background-color: var(--bg-color);
-            border-radius: var(--radius);
-            border: 1px dashed var(--border-color);
-        }
-        
-        /* Scrollbar customization */
-        ::-webkit-scrollbar {
-            width: 8px;
-        }
-        
-        ::-webkit-scrollbar-track {
-            background: #f1f1f1;
-            border-radius: 4px;
-        }
-        
-        ::-webkit-scrollbar-thumb {
-            background: #c5c7ca;
-            border-radius: 4px;
-        }
-        
-        ::-webkit-scrollbar-thumb:hover {
-            background: #a1a3a7;
-        }
+        .error-message { background-color: #fee2e2; color: #dc2626; padding: 12px; border-radius: var(--radius); margin-bottom: 20px; font-weight: 500; }
+        .no-clusters { padding: 16px; text-align: center; color: #6b7280; background-color: var(--bg-color); border-radius: var(--radius); border: 1px dashed var(--border-color); }
     </style>
 </head>
 <body>
     <div id="app">
-        <!-- Error display -->
-        <div v-if="error" class="error-message">
-            [[ error ]]
-        </div>
+        <div v-if="error" class="error-message">[[ error ]]</div>
 
-        <!-- Left panel - Clusters -->
-        <div class="clusters-panel">
+        <div class="clusters-panel panel">
             <h2>Clusters ([[ totalClusters ]])</h2>
-            <div v-if="clusters.length === 0" class="no-clusters">
-                No clusters available
-            </div>
+            <div v-if="clusters.length === 0" class="no-clusters">No clusters available</div>
             <div class="cluster-list">
-                <div v-for="cluster in clusters" :key="cluster.id">
-                    <div 
-                        class="cluster-item"
-                        :class="{ active: selectedClusterId === cluster.id }"
-                        @click="toggleClusterDetails(cluster.id)">
-                        [[ cluster.id ]] - [[ cluster.name ]]
-                    </div>
-                    <div 
-                        class="cluster-details"
-                        :class="{ visible: selectedClusterId === cluster.id }"
-                        v-show="selectedClusterId === cluster.id">
-                        <div v-if="cluster.id === selectedClusterId && clusterDetails[cluster.id]">
-                            <div class="cluster-summary">[[ clusterDetails[cluster.id].summary ]]</div>
-                            <div class="model-info" style="margin-top: 10px; font-style: italic; color: #666;">
-                                Generated by: [[ clusterDetails[cluster.id].model ]]
-                            </div>
-                            <button 
-                                @click="regenerateSummary(cluster.id)" 
-                                class="regenerate-button"
-                                :disabled="isRegenerating === cluster.id"
-                                style="margin-top: 10px; padding: 8px 15px; cursor: pointer; background-color: #f0f0f0; border: 1px solid #ccc; border-radius: 4px; font-weight: bold;">
-                                [[ isRegenerating === cluster.id ? 'Regenerating...' : 'Regenerate summary' ]]
+                <div v-for="cluster in clusters" :key="cluster.id"
+                     :class="['cluster-item', { active: selectedClusterId === cluster.id }]"
+                     @click="toggleClusterDetails(cluster.id)">
+                    <div>[[ cluster.name ]]</div>
+                    <div class="cluster-details" :class="{ visible: selectedClusterId === cluster.id }">
+                        <div class="cluster-summary">
+                            <p><strong>Summary:</strong> [[ clusterDetails[cluster.id]?.summary || cluster.summary ]]</p>
+                            <p v-if="clusterDetails[cluster.id]?.model"><strong>Model:</strong> [[ clusterDetails[cluster.id].model ]]</p>
+                            <button @click.stop="regenerateSummary(cluster.id)" 
+                                    :disabled="isRegenerating === cluster.id">
+                                [[ isRegenerating === cluster.id ? 'Regenerating...' : 'Regenerate Summary' ]]
                             </button>
-                            <div class="complaint-list">
-                                <div v-for="complaint in clusterDetails[cluster.id].complaints" 
-                                     :key="complaint.id" 
-                                     class="complaint-item">
-                                    <strong>[[ complaint.name ]]:</strong> [[ complaint.text ]]
-                                </div>
+                        </div>
+                        <div v-if="clusterDetails[cluster.id]?.complaints" class="complaint-list">
+                            <div v-for="complaint in clusterDetails[cluster.id].complaints" 
+                                 :key="complaint.id" class="complaint-item">
+                                [[ complaint.text ]]
                             </div>
                         </div>
                     </div>
@@ -346,31 +103,25 @@
             </div>
         </div>
 
-        <!-- Center - Canvas -->
         <div class="canvas-container">
             <canvas ref="canvas" id="canvas" width="800" height="650"></canvas>
         </div>
 
-        <!-- Right panel -->
-        <div class="right-panel">
+        <div class="right-panel panel">
             <div class="controls">
                 <div class="buttons">
                     <button @click="sendSelected">Отправить выделенные</button>
                     <button @click="resetSelection" style="background-color: #6b7280;">Сбросить выделение</button>
                 </div>
-                <div class="step-control">
+                <div class="control-group">
                     <label for="stepRange">Perplexity (2 - 150): [[ step ]]</label>
                     <input type="range" id="stepRange" v-model.number="step" min="2" max="150">
-                    <button @click="applyTsne" class="apply-tsne-button">Apply t-SNE</button>
+                    <button @click="applyTsne">Apply t-SNE</button>
                 </div>
                 <div style="margin-top: 8px;">
                     <label for="modelSelect">Выберите модель:</label>
                     <select id="modelSelect" class="form-select" v-model="model">
-                        <option v-for="option in availableModels"
-                                :key="option"
-                                :value="option">
-                            [[ option ]]
-                        </option>
+                        <option v-for="option in availableModels" :key="option" :value="option">[[ option ]]</option>
                     </select>
                 </div>
             </div>
@@ -382,7 +133,7 @@
                 <div><strong>Text:</strong> [[ currentPoint.info ]]</div>
             </div>
 
-            <div class="zoom-control">
+            <div class="control-group">
                 <label>Zoom: [[ (scale * 100).toFixed(0) ]]%</label>
                 <div class="zoom-buttons">
                     <button @click="zoom(1.2)">+</button>
@@ -394,13 +145,12 @@
     </div>
 
     <script>
-        // Initialize data with proper error handling
+        const { createApp } = Vue;
+
         window.djangoData = {
             totalClusters: parseInt('{{ total_clusters|default:"0" }}'),
             clusters: JSON.parse('{{ clusters|default:"[]"|escapejs }}')
         };
-
-        const { createApp } = Vue;
 
         class Point {
             constructor(id, x, y, info, email, name, cluster) {
@@ -439,7 +189,6 @@
                     isDrawing: false,
                     startX: 0,
                     startY: 0,
-                    selectedPoints: [],
                     step: 5,
                     currentPoint: {},
                     pointRadius: 3,
@@ -461,57 +210,23 @@
                 }
             },
             mounted() {
-                console.log('Vue app mounted');
-                console.log('Initial data:', window.djangoData);
                 this.initializeCanvas();
                 this.fetchPoints();
             },
             methods: {
+                // Canvas methods
                 initializeCanvas() {
                     const canvas = this.$refs.canvas;
-                    if (!canvas) {
-                        console.error('Canvas element not found');
-                        return;
-                    }
+                    if (!canvas) return;
                     
                     this.ctx = canvas.getContext('2d');
-                    if (!this.ctx) {
-                        console.error('Could not get 2D context');
-                        return;
-                    }
+                    if (!this.ctx) return;
                     
                     this.setupCanvasEvents();
                 },
-                async fetchPoints() {
-                    try {
-                        const response = await fetch('/api/complaints');
-                        if (!response.ok) {
-                            throw new Error(`HTTP error! status: ${response.status}`);
-                        }
-                        const data = await response.json();
-                        if (!Array.isArray(data)) {
-                            throw new Error('Invalid data format received');
-                        }
-                        this.points = data.map(point => new Point(
-                            point.id,
-                            point.x,
-                            point.y,
-                            point.text,
-                            point.email,
-                            point.name,
-                            point.cluster
-                        ));
-                        this.drawPoints();
-                    } catch (error) {
-                        console.error('Error fetching points:', error);
-                        this.error = 'Failed to load points: ' + error.message;
-                    }
-                },
+                
                 drawPoints() {
-                    if (!this.ctx) {
-                        console.error('Canvas context not initialized');
-                        return;
-                    }
+                    if (!this.ctx) return;
 
                     const canvas = this.$refs.canvas;
                     this.ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -525,22 +240,21 @@
                         this.ctx.arc(point.x, point.y, this.pointRadius / this.scale, 0, Math.PI * 2);
                         this.ctx.fillStyle = point.selected ? '#ef4444' : (point.highlighted ? '#10b981' : 'rgba(79, 70, 229, 0.4)');
                         this.ctx.fill();
-                        this.ctx.closePath();
                     });
                     
                     this.ctx.restore();
                 },
+                
                 screenToCanvas(screenX, screenY) {
                     return {
                         x: (screenX - this.offsetX) / this.scale,
                         y: (screenY - this.offsetY) / this.scale
                     };
                 },
+                
                 zoom(factor, centerX, centerY) {
                     const oldScale = this.scale;
-                    this.scale *= factor;
-                    
-                    this.scale = Math.max(0.1, Math.min(10, this.scale));
+                    this.scale = Math.max(0.1, Math.min(10, this.scale * factor));
                     
                     if (centerX !== undefined && centerY !== undefined) {
                         const scaleFactor = this.scale / oldScale;
@@ -550,32 +264,34 @@
                     
                     this.drawPoints();
                 },
+                
                 resetView() {
                     this.scale = 1;
                     this.offsetX = 0;
                     this.offsetY = 0;
                     this.drawPoints();
                 },
+                
                 setupCanvasEvents() {
                     const canvas = this.$refs.canvas;
                     
+                    // Zoom with wheel
                     canvas.addEventListener('wheel', (e) => {
                         e.preventDefault();
                         const rect = canvas.getBoundingClientRect();
                         const mouseX = e.clientX - rect.left;
                         const mouseY = e.clientY - rect.top;
                         
-                        const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
-                        this.zoom(zoomFactor, mouseX, mouseY);
+                        this.zoom(e.deltaY < 0 ? 1.1 : 0.9, mouseX, mouseY);
                     });
                     
+                    // Click point
                     canvas.addEventListener('click', (e) => {
                         if (this.isPanning) return;
                         
                         const rect = canvas.getBoundingClientRect();
                         const screenX = e.clientX - rect.left;
                         const screenY = e.clientY - rect.top;
-                        
                         const canvasPoint = this.screenToCanvas(screenX, screenY);
                         
                         this.points.forEach(point => {
@@ -593,10 +309,10 @@
                         this.drawPoints();
                     });
                     
-                    canvas.addEventListener('contextmenu', (e) => {
-                        e.preventDefault();
-                    });
+                    // Context menu
+                    canvas.addEventListener('contextmenu', e => e.preventDefault());
                     
+                    // Mouse down
                     canvas.addEventListener('mousedown', (e) => {
                         const rect = canvas.getBoundingClientRect();
                         const screenX = e.clientX - rect.left;
@@ -615,6 +331,7 @@
                         }
                     });
                     
+                    // Mouse move
                     canvas.addEventListener('mousemove', (e) => {
                         const rect = canvas.getBoundingClientRect();
                         const screenX = e.clientX - rect.left;
@@ -647,11 +364,11 @@
                         );
                         this.ctx.strokeStyle = '#4361ee';
                         this.ctx.stroke();
-                        this.ctx.closePath();
                         
                         this.ctx.restore();
                     });
                     
+                    // Mouse up
                     canvas.addEventListener('mouseup', (e) => {
                         if (this.isPanning) {
                             this.isPanning = false;
@@ -683,16 +400,36 @@
                         this.drawPoints();
                     });
                     
+                    // Mouse leave
                     canvas.addEventListener('mouseleave', () => {
                         this.isPanning = false;
                         this.isDrawing = false;
                         canvas.style.cursor = 'default';
                     });
                 },
+                
+                // API methods
+                async fetchPoints() {
+                    try {
+                        const response = await fetch('/api/complaints');
+                        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                        
+                        const data = await response.json();
+                        if (!Array.isArray(data)) throw new Error('Invalid data format received');
+                        
+                        this.points = data.map(point => new Point(
+                            point.id, point.x, point.y, point.text,
+                            point.email, point.name, point.cluster
+                        ));
+                        this.drawPoints();
+                    } catch (error) {
+                        console.error('Error fetching points:', error);
+                        this.error = 'Failed to load points: ' + error.message;
+                    }
+                },
+                
                 async sendSelected() {
-                    const selectedIds = this.points
-                        .filter(p => p.selected)
-                        .map(p => p.id);
+                    const selectedIds = this.points.filter(p => p.selected).map(p => p.id);
 
                     if (!selectedIds.length) {
                         alert("Выберите хотя бы одну жалобу!");
@@ -718,12 +455,12 @@
                         alert("Произошла ошибка при отправке данных");
                     }
                 },
+                
                 async updateClustersPanel() {
                     try {
                         const response = await fetch('/api/clusters/');
-                        if (!response.ok) {
-                            throw new Error('Failed to fetch clusters');
-                        }
+                        if (!response.ok) throw new Error('Failed to fetch clusters');
+                        
                         const clusters = await response.json();
                         
                         this.totalClusters = clusters.length;
@@ -736,20 +473,20 @@
                         this.selectedClusterId = null;
                         this.clusterDetails = {};
                         
-                        this.points.forEach(point => {
-                            point.highlighted = false;
-                        });
+                        this.points.forEach(point => point.highlighted = false);
                         this.drawPoints();
                     } catch (error) {
                         console.error('Error updating clusters panel:', error);
                         this.error = 'Failed to update clusters: ' + error.message;
                     }
                 },
+                
                 resetSelection() {
                     this.points.forEach(p => p.selected = false);
                     this.currentPoint = {};
                     this.drawPoints();
                 },
+                
                 async applyTsne() {
                     try {
                         const response = await fetch('/api/apply-tsne/', {
@@ -760,7 +497,7 @@
 
                         if (response.ok) {
                             alert("Функция apply_tsne вызвана успешно!");
-                            await this.fetchPoints()
+                            await this.fetchPoints();
                         } else {
                             alert("Ошибка при вызове apply_tsne");
                         }
@@ -769,9 +506,8 @@
                         alert("Произошла ошибка при отправке запроса");
                     }
                 },
+                
                 async toggleClusterDetails(clusterId) {
-                    console.log('Toggling cluster details for:', clusterId);
-                    
                     if (this.selectedClusterId === clusterId) {
                         this.selectedClusterId = null;
                         this.points.forEach(point => {
@@ -784,16 +520,10 @@
                         
                         if (!this.clusterDetails[clusterId]) {
                             try {
-                                console.log('Fetching details for cluster:', clusterId);
                                 const response = await fetch(`/api/clusters/${clusterId}/details/`);
-                                
-                                if (!response.ok) {
-                                    console.error('Server response not ok:', response.status);
-                                    throw new Error(`Failed to fetch cluster details: ${response.statusText}`);
-                                }
+                                if (!response.ok) throw new Error(`Failed to fetch cluster details: ${response.statusText}`);
                                 
                                 const data = await response.json();
-                                console.log('Received cluster data:', data);
                                 
                                 this.clusterDetails[clusterId] = {
                                     summary: data.summary || cluster.summary,
@@ -807,14 +537,11 @@
                             }
                         }
 
-                        this.points.forEach(point => {
-                            point.highlighted = point.cluster === clusterId;
-                        });
-
-                        this.$forceUpdate();
+                        this.points.forEach(point => point.highlighted = point.cluster === clusterId);
                     }
                     this.drawPoints();
                 },
+                
                 async regenerateSummary(clusterId) {
                     try {
                         this.isRegenerating = clusterId;
@@ -826,12 +553,10 @@
 
                         if (response.ok) {
                             const data = await response.json();
-                            console.log('Regenerated cluster data:', data);
                             
                             // Update the cluster in the clusters array
                             const clusterIndex = this.clusters.findIndex(c => c.id === clusterId);
                             if (clusterIndex !== -1) {
-                                // Vue 3 has improved reactivity, we can directly update
                                 this.clusters[clusterIndex] = {
                                     ...this.clusters[clusterIndex],
                                     name: data.name,
@@ -844,12 +569,9 @@
                                 this.clusterDetails[clusterId] = {
                                     ...this.clusterDetails[clusterId],
                                     summary: data.summary,
-                                    model: data.model  // Update model if it's returned
+                                    model: data.model
                                 };
                             }
-                            
-                            // Make sure the UI is updated
-                            this.$forceUpdate();
                             
                             alert("Суммаризация кластера успешно обновлена!");
                         } else {
