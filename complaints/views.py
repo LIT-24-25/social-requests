@@ -15,7 +15,9 @@ from django.core.management import call_command
 from django.http import HttpResponse
 from django.core.serializers import serialize
 from clusters.views import ClusterListCreate
+import logging
 
+logger = logging.getLogger(__name__)
 
 class ComplaintListCreate(generics.ListCreateAPIView):
     queryset = Complaint.objects.all()
@@ -53,6 +55,13 @@ def create_complaint(request):
                 y=rnd.randint(5, 400),
                 cluster=None
             )
+            
+            # Генерируем эмбеддинги для жалобы
+            try:
+                new_item.call_gigachat_embeddings()
+                new_item.save()
+            except Exception as e:
+                logger.error(f"Error generating embeddings for complaint {new_item.id}: {str(e)}")
             
             return JsonResponse({
                 'success': True,
