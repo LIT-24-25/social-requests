@@ -20,8 +20,8 @@ class Command(BaseCommand):
         parser.add_argument(
             '--max-results',
             type=int,
-            default=300,
-            help='Maximum number of comments to retrieve (default: 100)'
+            default=1000,
+            help='Maximum number of comments to retrieve (default: 1000)'
         )
         parser.add_argument(
             '--batch-size',
@@ -39,14 +39,57 @@ class Command(BaseCommand):
             
         Returns:
             str: Video ID if found, None otherwise
+            
+        Raises:
+            ValueError: If the URL is invalid or not a YouTube URL
         """
+        if not url:
+            raise ValueError("YouTube URL cannot be empty")
+            
         parsed_url = urlparse(url)
-        if parsed_url.hostname in ('www.youtube.com', 'youtube.com'):
-            if parsed_url.path == '/watch':
-                return parse_qs(parsed_url.query)['v'][0]
-        elif parsed_url.hostname == 'youtu.be':
-            return parsed_url.path[1:]
-        return None
+        
+        # Validate basic URL structure
+        if not parsed_url.scheme or not parsed_url.netloc:
+            raise ValueError("Invalid URL format")
+            
+        # Check if it's a YouTube domain
+        if not ('youtube.com' in parsed_url.hostname or 'youtu.be' in parsed_url.hostname):
+            raise ValueError("URL is not from YouTube")
+        
+        # Extract video ID based on different URL formats
+        if 'youtube.com' in parsed_url.hostname:
+            # Standard watch URLs: youtube.com/watch?v=VIDEO_ID
+            if '/watch' in parsed_url.path:
+                query_params = parse_qs(parsed_url.query)
+                if 'v' in query_params:
+                    return query_params['v'][0]
+                    
+            # Short URLs: youtube.com/shorts/VIDEO_ID
+            elif '/shorts/' in parsed_url.path:
+                path_parts = parsed_url.path.split('/')
+                if len(path_parts) > 2:
+                    return path_parts[2]
+                    
+            # Embedded URLs: youtube.com/embed/VIDEO_ID
+            elif '/embed/' in parsed_url.path:
+                path_parts = parsed_url.path.split('/')
+                if len(path_parts) > 2:
+                    return path_parts[2]
+                    
+            # Video direct URLs: youtube.com/v/VIDEO_ID
+            elif parsed_url.path.startswith('/v/'):
+                path_parts = parsed_url.path.split('/')
+                if len(path_parts) > 2:
+                    return path_parts[2]
+        
+        # Short-form youtu.be URLs: youtu.be/VIDEO_ID
+        elif 'youtu.be' in parsed_url.hostname:
+            if parsed_url.path and parsed_url.path != '/':
+                # Remove leading slash
+                return parsed_url.path[1:].split('/')[0]
+        
+        # If we get here, we couldn't extract a video ID
+        raise ValueError("Could not extract video ID from URL. Please use a standard YouTube URL format.")
 
     def get_comment_replies(self, youtube, parent_id: str, max_results: int = 100) -> List[Dict]:
         """
@@ -108,61 +151,94 @@ class Command(BaseCommand):
             
         Raises:
             ValueError: If the video URL is invalid
+            ConnectionError: If there's an error connecting to the YouTube API
             Exception: If there's an error accessing the YouTube API
         """
-        video_id = self.get_video_id(video_url)
-        if not video_id:
-            raise ValueError("Invalid YouTube URL")
-
-        youtube = build('youtube', 'v3', developerKey=youtube_api_key)
-        all_comments = []
-        top_level_count = 0
-
         try:
-            request = youtube.commentThreads().list(
-                part="snippet,replies",
-                videoId=video_id,
-                maxResults=min(max_results, 100),
-                textFormat="plainText"
-            )
+            video_id = self.get_video_id(video_url)
+            if not video_id:
+                raise ValueError("Invalid YouTube URL - could not extract video ID")
 
-            while request and top_level_count < max_results:
-                response = request.execute()
-                
-                for item in response['items']:
-                    comment = item['snippet']['topLevelComment']['snippet']
-                    comment_id = item['snippet']['topLevelComment']['id']
+            # Try to build the YouTube service
+            try:
+                youtube = build('youtube', 'v3', developerKey=youtube_api_key)
+            except Exception as e:
+                raise ConnectionError(f"Failed to connect to YouTube API: {str(e)}")
+
+            all_comments = []
+            top_level_count = 0
+
+            try:
+                request = youtube.commentThreads().list(
+                    part="snippet,replies",
+                    videoId=video_id,
+                    maxResults=min(max_results, 100),
+                    textFormat="plainText"
+                )
+
+                while request and top_level_count < max_results:
+                    try:
+                        response = request.execute()
+                    except Exception as e:
+                        raise ConnectionError(f"Failed to fetch comments from YouTube API: {str(e)}")
                     
-                    # Add top-level comment
-                    all_comments.append({
-                        'name': comment['authorDisplayName'],
-                        'email': comment['authorChannelUrl'],
-                        'text': comment['textDisplay'],
-                    })
-                    top_level_count += 1
+                    if 'items' not in response or not response['items']:
+                        self.stdout.write("No comments found for this video or comments may be disabled.")
+                        break
+                    
+                    for item in response['items']:
+                        comment = item['snippet']['topLevelComment']['snippet']
+                        comment_id = item['snippet']['topLevelComment']['id']
+                        
+                        # Add top-level comment
+                        all_comments.append({
+                            'name': comment['authorDisplayName'],
+                            'email': comment['authorChannelUrl'],
+                            'text': comment['textDisplay'],
+                        })
+                        top_level_count += 1
 
-                    # Check if comment has replies
-                    if item.get('snippet', {}).get('totalReplyCount', 0) > 0:
-                        # Fetch all replies for this comment
-                        replies = self.get_comment_replies(youtube, comment_id)
-                        all_comments.extend(replies)
+                        # Check if comment has replies
+                        if item.get('snippet', {}).get('totalReplyCount', 0) > 0:
+                            # Fetch all replies for this comment
+                            replies = self.get_comment_replies(youtube, comment_id)
+                            all_comments.extend(replies)
 
-                if 'nextPageToken' in response and top_level_count < max_results:
-                    request = youtube.commentThreads().list(
-                        part="snippet,replies",
-                        videoId=video_id,
-                        pageToken=response['nextPageToken'],
-                        maxResults=min(max_results - top_level_count, 100),
-                        textFormat="plainText"
-                    )
+                    if 'nextPageToken' in response and top_level_count < max_results:
+                        request = youtube.commentThreads().list(
+                            part="snippet,replies",
+                            videoId=video_id,
+                            pageToken=response['nextPageToken'],
+                            maxResults=min(max_results - top_level_count, 100),
+                            textFormat="plainText"
+                        )
+                    else:
+                        request = None
+                
+                self.stdout.write(f"Found {len(all_comments)} total comments ({top_level_count} top-level comments and {len(all_comments) - top_level_count} replies)")
+                
+                if not all_comments:
+                    self.stdout.write(self.style.WARNING("No comments were retrieved. The video might have comments disabled."))
+                
+                return all_comments
+
+            except Exception as e:
+                if "commentsDisabled" in str(e):
+                    raise ValueError("Comments are disabled for this video")
+                elif "videoNotFound" in str(e):
+                    raise ValueError("Video not found - it might be private or deleted")
                 else:
-                    request = None
-            
-            self.stdout.write(f"Found {len(all_comments)} total comments ({top_level_count} top-level comments and {len(all_comments) - top_level_count} replies)")
-            return all_comments
+                    raise Exception(f"Error fetching comments: {str(e)}")
 
+        except ValueError as e:
+            # Re-raise validation errors
+            raise
+        except ConnectionError as e:
+            # Re-raise connection errors
+            raise
         except Exception as e:
-            raise Exception(f"Error fetching comments: {str(e)}")
+            # Convert other errors to a generic exception
+            raise Exception(f"Error processing YouTube URL: {str(e)}")
 
     def prepare_batches(self, comments: List[Dict], batch_size: int) -> Tuple[List[Complaint], List[str]]:
         """
@@ -257,9 +333,36 @@ class Command(BaseCommand):
         try:
             # Fetch comments from YouTube
             overall_progress.set_description("Fetching YouTube comments")
-            comments = self.get_youtube_comments(video_url, max_results)
-            logger.info(f"Successfully retrieved {len(comments)} total comments")
+            try:
+                comments = self.get_youtube_comments(video_url, max_results)
+                logger.info(f"Successfully retrieved {len(comments)} total comments")
+            except ValueError as e:
+                # URL validation errors
+                overall_progress.close()
+                logger.error(f"YouTube URL validation error: {str(e)}")
+                self.stdout.write(self.style.ERROR(f"Invalid YouTube URL: {str(e)}"))
+                return
+            except ConnectionError as e:
+                # Connection errors
+                overall_progress.close()
+                logger.error(f"YouTube API connection error: {str(e)}")
+                self.stdout.write(self.style.ERROR(f"Connection error: {str(e)}"))
+                return
+            except Exception as e:
+                # Other API errors
+                overall_progress.close()
+                logger.error(f"YouTube API error: {str(e)}")
+                self.stdout.write(self.style.ERROR(f"YouTube API error: {str(e)}"))
+                return
+            
             overall_progress.update(1)
+            
+            # If no comments were found but no error was raised
+            if not comments:
+                overall_progress.close()
+                logger.warning("No comments found for the video. The video might have comments disabled.")
+                self.stdout.write(self.style.WARNING("No comments found for the video. The video might have comments disabled."))
+                return
             
             # Prepare batches of complaints and their texts
             overall_progress.set_description("Preparing complaint batches")

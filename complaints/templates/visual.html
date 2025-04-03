@@ -179,7 +179,10 @@
 </head>
 <body>
     <div id="app">
-        <div v-if="error" class="error-message">[[ error ]]</div>
+        <div v-if="error" class="error-message" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+            <span>[[ error ]]</span>
+            <button @click="error = null" style="background: none; color: #dc2626; font-weight: bold; padding: 0 5px; font-size: 1rem; min-width: auto;">×</button>
+        </div>
 
         <div class="clusters-panel panel">
             <h2>Clusters ([[ totalClusters ]])</h2>
@@ -242,6 +245,23 @@
                 <div class="buttons">
                     <button @click="sendSelected">Отправить выделенные</button>
                     <button @click="resetSelection" style="background-color: #6b7280;">Сбросить выделение</button>
+                </div>
+                
+                <div class="youtube-import">
+                    <h4 style="margin-top: 16px; margin-bottom: 10px; font-weight: 600;">Добавить данные</h4>
+                    <div style="display: flex; gap: 8px;">
+                        <input type="text" v-model="youtubeUrl" placeholder="Insert YouTube link" class="form-select" style="flex: 1;" :disabled="isProcessingYouTube">
+                        <button @click="addYouTubeData" :disabled="isProcessingYouTube || !youtubeUrl" style="min-width: 90px;">
+                            [[ isProcessingYouTube ? 'Processing...' : 'Import' ]]
+                        </button>
+                    </div>
+                    <div v-if="isProcessingYouTube" style="margin-top: 8px; color: #4361ee; font-size: 0.9rem;">
+                        Importing YouTube comments... [[ currentStatusMessage ]]
+                    </div>
+                    <div v-if="youtubeError" class="error-message" style="margin-top: 10px; margin-bottom: 0; font-size: 0.9rem; display: flex; justify-content: space-between; align-items: center;">
+                        <span>[[ youtubeError ]]</span>
+                        <button @click="clearYoutubeError" style="background: none; color: #dc2626; font-weight: bold; padding: 0 5px; font-size: 1rem; min-width: auto;">×</button>
+                    </div>
                 </div>
             </div>
             <div v-if="currentPoint.email" class="complaint-detail">
@@ -330,12 +350,22 @@
                     selectedClusterId: null,
                     clusterDetails: {},
                     error: null,
-                    isRegenerating: null
+                    isRegenerating: null,
+                    youtubeUrl: "",
+                    isProcessingYouTube: false,
+                    currentStatusMessage: "",
+                    countdownSeconds: 0,
+                    countdownIntervalId: null,
+                    youtubeError: null
                 }
             },
             mounted() {
                 this.initializeCanvas();
                 this.fetchPoints();
+            },
+            beforeUnmount() {
+                // Clean up any timers when component is destroyed
+                this.clearCountdownTimer();
             },
             methods: {
                 // Canvas methods
@@ -545,6 +575,23 @@
                             point.id, point.x, point.y, point.text,
                             point.email, point.name, point.cluster
                         ));
+                        
+                        // Restore highlighting for selected cluster if there is one
+                        if (this.selectedClusterId) {
+                            this.points.forEach(point => {
+                                if (point.cluster !== null && point.cluster !== undefined) {
+                                    // Use string comparison to avoid type mismatches
+                                    point.highlighted = String(point.cluster) === String(this.selectedClusterId);
+                                } else {
+                                    point.highlighted = false;
+                                }
+                            });
+                            
+                            // Log for debugging
+                            const highlightedCount = this.points.filter(p => p.highlighted).length;
+                            console.log(`After fetch: Highlighted ${highlightedCount} points for cluster ${this.selectedClusterId}`);
+                        }
+                        
                         this.drawPoints();
                     } catch (error) {
                         console.error('Error fetching points:', error);
@@ -582,6 +629,9 @@
                 
                 async updateClustersPanel() {
                     try {
+                        // Save current selected cluster ID
+                        const currentSelectedClusterId = this.selectedClusterId;
+                        
                         const response = await fetch('/api/clusters/');
                         if (!response.ok) throw new Error('Failed to fetch clusters');
                         
@@ -594,10 +644,36 @@
                             summary: cluster.summary
                         }));
                         
-                        this.selectedClusterId = null;
-                        this.clusterDetails = {};
+                        // Don't reset selected cluster here
+                        // this.selectedClusterId = null;
                         
-                        this.points.forEach(point => point.highlighted = false);
+                        // Only reset details if needed
+                        if (this.selectedClusterId !== currentSelectedClusterId) {
+                            this.clusterDetails = {};
+                        }
+                        
+                        // Restore the selected cluster ID if it still exists
+                        if (currentSelectedClusterId && this.clusters.some(c => c.id === currentSelectedClusterId)) {
+                            this.selectedClusterId = currentSelectedClusterId;
+                            // Restore highlighting
+                            this.points.forEach(point => {
+                                if (point.cluster !== null && point.cluster !== undefined) {
+                                    // Use string comparison to avoid type mismatches
+                                    point.highlighted = String(point.cluster) === String(currentSelectedClusterId);
+                                } else {
+                                    point.highlighted = false;
+                                }
+                            });
+                            
+                            // Log for debugging
+                            const highlightedCount = this.points.filter(p => p.highlighted).length;
+                            console.log(`After panel update: Highlighted ${highlightedCount} points for cluster ${currentSelectedClusterId}`);
+                        } else {
+                            // Clear highlighting if the selected cluster no longer exists
+                            this.selectedClusterId = null;
+                            this.points.forEach(point => point.highlighted = false);
+                        }
+                        
                         this.drawPoints();
                     } catch (error) {
                         console.error('Error updating clusters panel:', error);
@@ -632,6 +708,8 @@
                 },
                 
                 async toggleClusterDetails(clusterId) {
+                    console.log('Selected Cluster ID:', clusterId, 'Type:', typeof clusterId);
+                    
                     if (this.selectedClusterId === clusterId) {
                         this.selectedClusterId = null;
                         this.points.forEach(point => {
@@ -641,6 +719,14 @@
                     } else {
                         this.selectedClusterId = clusterId;
                         const cluster = this.clusters.find(c => c.id === clusterId);
+                        
+                        // Debug: Log some points and their cluster values
+                        const samplePoints = this.points.slice(0, 5);
+                        console.log('Sample Points:', samplePoints.map(p => ({
+                            id: p.id,
+                            cluster: p.cluster,
+                            clusterType: typeof p.cluster
+                        })));
                         
                         if (!this.clusterDetails[clusterId]) {
                             try {
@@ -668,7 +754,20 @@
                             }
                         }
 
-                        this.points.forEach(point => point.highlighted = point.cluster === clusterId);
+                        // Attempt to fix potential type issues by ensuring both are numbers or strings
+                        this.points.forEach(point => {
+                            // Convert to same type for comparison
+                            if (point.cluster !== null && point.cluster !== undefined) {
+                                // Try string comparison if direct comparison fails
+                                point.highlighted = String(point.cluster) === String(clusterId);
+                            } else {
+                                point.highlighted = false;
+                            }
+                        });
+                        
+                        // Log how many points are highlighted
+                        const highlightedCount = this.points.filter(p => p.highlighted).length;
+                        console.log(`Highlighted ${highlightedCount} points for cluster ${clusterId}`);
                     }
                     this.drawPoints();
                 },
@@ -676,6 +775,156 @@
                 toggleComplaintExpand(complaint) {
                     // Toggle the expanded state
                     complaint.expanded = !complaint.expanded;
+                },
+                
+                async addYouTubeData() {
+                    if (!this.youtubeUrl) {
+                        alert("Please enter a YouTube URL");
+                        return;
+                    }
+                    
+                    // Clear any existing countdown timer
+                    this.clearCountdownTimer();
+                    
+                    try {
+                        this.isProcessingYouTube = true;
+                        this.error = null;
+                        this.youtubeError = null; // Clear any previous YouTube errors
+                        this.currentStatusMessage = "Starting import process...";
+                        
+                        const response = await fetch('/api/add-youtube/', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ 
+                                video_url: this.youtubeUrl,
+                                max_results: 1000,  // Default max results
+                                batch_size: 50     // Default batch size
+                            })
+                        });
+
+                        if (response.ok) {
+                            const data = await response.json();
+                            this.youtubeUrl = "";
+                            
+                            if (data.task_id) {
+                                this.currentStatusMessage = "Task started. Checking status...";
+                                this.checkYouTubeTaskStatus(data.task_id);
+                            } else {
+                                this.fetchPoints();
+                                alert("YouTube comments successfully imported!");
+                                this.isProcessingYouTube = false;
+                                this.currentStatusMessage = "";
+                            }
+                        } else {
+                            const errorData = await response.json();
+                            const errorMessage = errorData.error || "Error importing YouTube comments";
+                            throw new Error(errorMessage);
+                        }
+                    } catch (error) {
+                        console.error('Error:', error);
+                        this.error = error.message;
+                        this.youtubeError = error.message; // Set YouTube specific error
+                        this.currentStatusMessage = "Import failed";
+                        alert("Error importing YouTube comments: " + error.message);
+                        this.isProcessingYouTube = false;
+                    }
+                },
+                
+                // Check task status with exponential backoff
+                async checkYouTubeTaskStatus(taskId, attempt = 1) {
+                    try {
+                        // Clear any existing countdown interval
+                        this.clearCountdownTimer();
+                        
+                        const response = await fetch(`/api/task-status/${taskId}/`);
+                        if (response.ok) {
+                            const data = await response.json();
+                            
+                            if (['PENDING', 'STARTED', 'PROGRESS'].includes(data.status)) {
+                                // Calculate next polling interval with exponential backoff
+                                // Start with 3 seconds, max out at 30 seconds
+                                const baseDelay = 3000; // 3 seconds
+                                const maxDelay = 30000; // 30 seconds
+                                const backoffFactor = 1.5;
+                                
+                                let nextDelay = Math.min(
+                                    baseDelay * Math.pow(backoffFactor, attempt - 1), 
+                                    maxDelay
+                                );
+                                
+                                // Set initial countdown seconds
+                                this.countdownSeconds = Math.round(nextDelay/1000);
+                                
+                                // Update status message initially
+                                this.updateStatusWithCountdown(data.status);
+                                
+                                // Start countdown timer that updates every second
+                                this.countdownIntervalId = setInterval(() => {
+                                    this.countdownSeconds--;
+                                    this.updateStatusWithCountdown(data.status);
+                                    
+                                    // If countdown reaches zero, clear the interval
+                                    if (this.countdownSeconds <= 0) {
+                                        this.clearCountdownTimer();
+                                    }
+                                }, 1000);
+                                
+                                console.log(`Task still running. Next check in ${nextDelay/1000} seconds`);
+                                
+                                // Task still running, check again with increasing delay
+                                setTimeout(() => this.checkYouTubeTaskStatus(taskId, attempt + 1), nextDelay);
+                            } else if (data.status === 'SUCCESS') {
+                                // Task complete
+                                this.clearCountdownTimer();
+                                this.currentStatusMessage = "Import complete! Refreshing data...";
+                                this.youtubeError = null; // Clear any errors on success
+                                
+                                // Store the current selected cluster ID
+                                const currentClusterId = this.selectedClusterId;
+                                
+                                // Refresh points
+                                await this.fetchPoints();
+                                
+                                alert(`YouTube import complete! Imported ${data.result.success_count} comments.`);
+                                this.isProcessingYouTube = false;
+                                this.currentStatusMessage = "";
+                            } else {
+                                // Task failed
+                                this.clearCountdownTimer();
+                                this.currentStatusMessage = "Import failed";
+                                const errorMessage = data.result || "YouTube import failed";
+                                this.youtubeError = errorMessage; // Set YouTube specific error
+                                throw new Error(errorMessage);
+                            }
+                        } else {
+                            throw new Error("Error checking task status");
+                        }
+                    } catch (error) {
+                        console.error('Error checking task status:', error);
+                        this.clearCountdownTimer();
+                        this.currentStatusMessage = "Error checking import status";
+                        this.youtubeError = error.message; // Set YouTube specific error
+                        alert("Error checking YouTube import status: " + error.message);
+                        this.isProcessingYouTube = false;
+                    }
+                },
+                
+                // Helper to update status message with current countdown
+                updateStatusWithCountdown(status) {
+                    this.currentStatusMessage = `Status: ${status}. Next check in ${this.countdownSeconds} second${this.countdownSeconds !== 1 ? 's' : ''}...`;
+                },
+                
+                // Helper to clear countdown timer
+                clearCountdownTimer() {
+                    if (this.countdownIntervalId) {
+                        clearInterval(this.countdownIntervalId);
+                        this.countdownIntervalId = null;
+                    }
+                },
+                
+                // Clear YouTube error message
+                clearYoutubeError() {
+                    this.youtubeError = null;
                 },
                 
                 async regenerateSummary(clusterId) {
