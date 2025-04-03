@@ -179,7 +179,10 @@
 </head>
 <body>
     <div id="app">
-        <div v-if="error" class="error-message">[[ error ]]</div>
+        <div v-if="error" class="error-message" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+            <span>[[ error ]]</span>
+            <button @click="error = null" style="background: none; color: #dc2626; font-weight: bold; padding: 0 5px; font-size: 1rem; min-width: auto;">×</button>
+        </div>
 
         <div class="clusters-panel panel">
             <h2>Clusters ([[ totalClusters ]])</h2>
@@ -254,6 +257,10 @@
                     </div>
                     <div v-if="isProcessingYouTube" style="margin-top: 8px; color: #4361ee; font-size: 0.9rem;">
                         Importing YouTube comments... [[ currentStatusMessage ]]
+                    </div>
+                    <div v-if="youtubeError" class="error-message" style="margin-top: 10px; margin-bottom: 0; font-size: 0.9rem; display: flex; justify-content: space-between; align-items: center;">
+                        <span>[[ youtubeError ]]</span>
+                        <button @click="clearYoutubeError" style="background: none; color: #dc2626; font-weight: bold; padding: 0 5px; font-size: 1rem; min-width: auto;">×</button>
                     </div>
                 </div>
             </div>
@@ -348,7 +355,8 @@
                     isProcessingYouTube: false,
                     currentStatusMessage: "",
                     countdownSeconds: 0,
-                    countdownIntervalId: null
+                    countdownIntervalId: null,
+                    youtubeError: null
                 }
             },
             mounted() {
@@ -781,6 +789,7 @@
                     try {
                         this.isProcessingYouTube = true;
                         this.error = null;
+                        this.youtubeError = null; // Clear any previous YouTube errors
                         this.currentStatusMessage = "Starting import process...";
                         
                         const response = await fetch('/api/add-youtube/', {
@@ -808,11 +817,13 @@
                             }
                         } else {
                             const errorData = await response.json();
-                            throw new Error(errorData.error || "Error importing YouTube comments");
+                            const errorMessage = errorData.error || "Error importing YouTube comments";
+                            throw new Error(errorMessage);
                         }
                     } catch (error) {
                         console.error('Error:', error);
                         this.error = error.message;
+                        this.youtubeError = error.message; // Set YouTube specific error
                         this.currentStatusMessage = "Import failed";
                         alert("Error importing YouTube comments: " + error.message);
                         this.isProcessingYouTube = false;
@@ -866,6 +877,7 @@
                                 // Task complete
                                 this.clearCountdownTimer();
                                 this.currentStatusMessage = "Import complete! Refreshing data...";
+                                this.youtubeError = null; // Clear any errors on success
                                 
                                 // Store the current selected cluster ID
                                 const currentClusterId = this.selectedClusterId;
@@ -880,7 +892,9 @@
                                 // Task failed
                                 this.clearCountdownTimer();
                                 this.currentStatusMessage = "Import failed";
-                                throw new Error(data.result || "YouTube import failed");
+                                const errorMessage = data.result || "YouTube import failed";
+                                this.youtubeError = errorMessage; // Set YouTube specific error
+                                throw new Error(errorMessage);
                             }
                         } else {
                             throw new Error("Error checking task status");
@@ -889,6 +903,7 @@
                         console.error('Error checking task status:', error);
                         this.clearCountdownTimer();
                         this.currentStatusMessage = "Error checking import status";
+                        this.youtubeError = error.message; // Set YouTube specific error
                         alert("Error checking YouTube import status: " + error.message);
                         this.isProcessingYouTube = false;
                     }
@@ -905,6 +920,11 @@
                         clearInterval(this.countdownIntervalId);
                         this.countdownIntervalId = null;
                     }
+                },
+                
+                // Clear YouTube error message
+                clearYoutubeError() {
+                    this.youtubeError = null;
                 },
                 
                 async regenerateSummary(clusterId) {

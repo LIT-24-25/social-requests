@@ -223,11 +223,11 @@ def is_valid_youtube_url(url):
     try:
         parsed_url = urlparse(url)
         if not parsed_url.scheme or not parsed_url.netloc:
-            return False, "Invalid URL format"
+            return False, "Invalid URL format. Please enter a complete URL including http:// or https://"
             
         # Check if it's from YouTube - only essential validation
         if not ('youtube.com' in parsed_url.netloc or 'youtu.be' in parsed_url.netloc):
-            return False, "URL is not from YouTube"
+            return False, "The URL must be from YouTube (youtube.com or youtu.be)"
         
         return True, "Valid YouTube URL"
     except Exception as e:
