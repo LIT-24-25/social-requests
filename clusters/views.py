@@ -3,30 +3,14 @@ from complaints.models import Complaint
 from rest_framework import generics
 from .serializers import ClusterSerializer
 from complaints.serializers import ComplaintSerializer
-from django.shortcuts import render
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from django.shortcuts import get_object_or_404
 
 class ClusterListCreate(generics.ListCreateAPIView):
-    queryset = Cluster.objects.all()
+    queryset = Cluster.objects.order_by("-id").all()
     serializer_class = ClusterSerializer
-
-class ClusterDetail(generics.RetrieveUpdateDestroyAPIView):
-    queryset = Cluster.objects.all()
-    serializer_class = ClusterSerializer
-
-def cluster_list(request):
-    # Получаем все кластеры и их количество
-    clusters = Cluster.objects.all()
-    total_clusters = clusters.count()
-
-    # Передаем данные в шаблон
-    return render(request, 'clusters_list.html', {
-        'total_clusters': total_clusters,
-        'clusters': clusters,
-    })
 
 class ClusterDetailAPI(APIView):
     def get(self, request, cluster_id):

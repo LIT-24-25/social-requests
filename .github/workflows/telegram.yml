@@ -15,6 +15,7 @@ jobs:
           to: ${{ secrets.CHAT_ID }}
           token: ${{ secrets.TELEGRAM_TOKEN }}
           message: |
+            @UPLAPPU @Aletavrus @Maksypya
             ${{ github.actor }} created commit:
             Commit message: ${{ github.event.commits[0].message }}
             

@@ -23,15 +23,24 @@ class Complaint(models.Model):
         null=True,
         default=None)
 
-    def call_gigachat_embeddings(self, text, giga_client):
+    def call_gigachat_embeddings(self, text=None, giga_client=None):
         try:
             # Проверяем, что text не пустой
             if not text or not isinstance(text, str):
+                text = self.text
+                
+            if not text or not isinstance(text, str):
                 raise ValueError("Text must be a non-empty string")
             
+            # Если клиент не передан, создаем новый экземпляр
+            if giga_client is None:
+                giga_client = GigaChat(credentials=gigachat_token, verify_ssl_certs=False)
+                
             response = giga_client.embeddings(text)
             self.embedding = response.data[0].embedding
+            return self.embedding
         except Exception as e:
+            logger.error(f"Error generating embeddings: {str(e)}")
             raise GigaChatException(f"Ошибка генерации: {str(e)}")
     
     @staticmethod
@@ -64,17 +73,5 @@ class Complaint(models.Model):
         return processed_complaints
 
     def save(self, *args, **kwargs):
-        if not self.embedding:
-            try:
-                # Инициализируем GigaChat с токеном
-                gigachat = GigaChat(credentials=gigachat_token, verify_ssl_certs=False)
-                
-                # Получаем эмбеддинги
-                response = gigachat.embeddings(self.text)
-                self.embedding = response.data[0].embedding
-            except Exception as e:
-                print(f"Ошибка при получении эмбеддингов: {str(e)}")
-                # Временно сохраняем без эмбеддингов
-                self.embedding = None
-        
+        # Удаляем создание эмбеддингов из метода save
         super().save(*args, **kwargs)
