@@ -23,7 +23,7 @@ class Cluster(models.Model):
             amount = random.randint(10, 30)
             complaints_list = list(complaints)
             complaints_for_summary = random.sample(complaints_list, min(amount, len(complaints_list)))
-            complaints_texts = [f"Жалоба {i + 1}: {c.text[:500]}" for i, c in enumerate(complaints_for_summary)]
+            complaints_texts = [f"Жалоба {i + 1}: {c.text}" for i, c in enumerate(complaints_for_summary)]
 
             combined_text = "\n".join(complaints_texts)
 
