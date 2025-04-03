@@ -40,30 +40,17 @@ def call_qwen(prompt):
         print(f"Error in call_qwen: {str(e)}")
         return "Error", "Failed to generate summary"
 
-def call_gigachat(prompt_title, prompt_summary):
+def call_gigachat(prompt):
     payload = Chat(
         messages=[
             Messages(
                 role=MessagesRole.USER,
-                content=prompt_title
+                content=prompt
             )
         ],
         temperature=0
     )
     with GigaChat(credentials=gigachat_token, verify_ssl_certs=False) as giga:
         response = giga.chat(payload)
-    name = response.choices[0].message.content
-
-    payload = Chat(
-        messages=[
-            Messages(
-                role=MessagesRole.USER,
-                content=prompt_summary
-            )
-        ],
-        temperature=0
-    )
-    with GigaChat(credentials=gigachat_token, verify_ssl_certs=False) as giga:
-        response = giga.chat(payload)
-    summary = response.choices[0].message.content
-    return name, summary     
+    result = response.choices[0].message.content
+    return result     
