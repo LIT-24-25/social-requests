@@ -234,7 +234,7 @@
                     <button @click="resetView" style="background-color: #6b7280;">Reset View</button>
                 </div>
                 <div class="control-group">
-                    <label for="modelSelect">Выберите модель:</label>
+                    <label for="modelSelect">Выберите модель для описания кластера:</label>
                     <select id="modelSelect" class="form-select" v-model="model">
                         <option v-for="option in availableModels" :key="option" :value="option">[[ option ]]</option>
                     </select>
