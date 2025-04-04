@@ -71,7 +71,3 @@ class Complaint(models.Model):
             
         logger.info(f"Batch processed {len(complaints)} complaints for embeddings")
         return processed_complaints
-
-    def save(self, *args, **kwargs):
-        # Удаляем создание эмбеддингов из метода save
-        super().save(*args, **kwargs)

@@ -1,5 +1,4 @@
 from django.db import models
-from gigachat import GigaChat
 from gigachat.exceptions import GigaChatException
 from .mymodels import call_gigachat, call_qwen
 import random
