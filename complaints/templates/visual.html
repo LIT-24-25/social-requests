@@ -29,7 +29,31 @@
         
         .panel { background-color: var(--panel-bg); border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow); }
         .clusters-panel { width: 320px; flex-shrink: 0; max-height: 650px; overflow-y: auto; }
-        .right-panel { width: 400px; flex-shrink: 0; display: flex; flex-direction: column; gap: 24px; overflow-y: auto; }
+        .right-panel { 
+            width: 400px; 
+            flex-shrink: 0; 
+            display: flex; 
+            flex-direction: column; 
+            height: 650px; /* Match canvas height */
+            overflow-y: hidden; /* Hide overflow at the panel level */
+        }
+        
+        .right-panel .controls {
+            flex: 1;
+            overflow-y: auto; /* Enable scrolling for the controls */
+            padding-right: 10px; /* Add padding for scrollbar */
+            margin-bottom: 10px; /* Add some space before the complaint detail */
+            display: flex;
+            flex-direction: column;
+            gap: 24px; /* Restore the gap between control elements */
+        }
+        
+        .right-panel .complaint-detail {
+            flex-shrink: 0; /* Prevent complaint detail from shrinking */
+            max-height: 350px; /* Limit maximum height */
+            overflow-y: auto; /* Make complaint detail independently scrollable */
+            margin-top: auto; /* Push to bottom when space available */
+        }
         
         .canvas-container { flex: 1; display: flex; justify-content: center; align-items: flex-start; height: fit-content; overflow: hidden; }
         
@@ -189,6 +213,34 @@
             max-height: 200px;
             overflow-y: auto;
         }
+        
+        .close-btn {
+            float: right;
+            background: none;
+            color: white;
+            border: none;
+            font-size: 1.1rem;
+            cursor: pointer;
+            opacity: 0.8;
+            transition: opacity 0.2s ease;
+            padding: 0 5px;
+        }
+        
+        .close-btn:hover {
+            opacity: 1;
+        }
+        
+        /* Separator line style */
+        .section-divider {
+            height: 5px;
+            min-height: 4px;
+            background: linear-gradient(to right, rgba(229, 231, 235, 0.5), rgba(67, 97, 238, 0.3), rgba(229, 231, 235, 0.5));
+            margin: 20px 0;
+            border: none;
+            border-radius: 3px;
+            display: block;
+            clear: both;
+        }
     </style>
 </head>
 <body>
@@ -247,13 +299,35 @@
 
         <div class="right-panel panel">
             <div class="controls">
+                <div class="control-group">
+                    <label for="searchType" style="font-weight: 500; margin-bottom: 8px;">Поиск записи</label>
+                    <select id="searchType" class="form-select" v-model="searchType" style="margin-bottom: 10px;">
+                        <option value="email">Email</option>
+                        <option value="text">Текст</option>
+                        <option value="semantic">Смысл</option>
+                    </select>
+                    <input type="text" v-model="searchQuery" placeholder="Введите текст для поиска" class="form-select">
+                </div>
+
+                <hr class="section-divider">
+                
                 <div class="zoom-buttons">
                     <button @click="zoom(1.2)">+</button>
                     <button @click="zoom(0.8)">-</button>
                     <button @click="resetView" style="background-color: #6b7280;">Reset View</button>
                 </div>
+
+                <hr class="section-divider">
                 
-                <hr style="margin: 20px 0 15px; border: none; height: 1px; background-color: #e5e7eb;">
+                <div class="control-group" style="margin-top: 15px;">
+                    <label for="perplexitySlider" style="font-weight: 500; margin-bottom: 8px; display: flex; justify-content: space-between;">
+                        <span>Perplexity: [[ step ]]</span>
+                    </label>
+                    <input type="range" id="perplexitySlider" min="1" max="50" step="1" v-model="step" class="form-range">
+                    <button @click="applyTsne" style="margin-top: 10px;">Применить T-SNE</button>
+                </div>
+                
+                <hr class="section-divider">
                                 
                 <div class="control-group">
                     <h3 style="font-weight: 800; margin-top: 0;">Создать кластер</h3>
@@ -267,8 +341,10 @@
                     <button @click="resetSelection" style="background-color: #6b7280;">Сбросить выделение</button>
                 </div>
                 
+                <hr class="section-divider">
+                
                 <div class="youtube-import">
-                    <h4 style="margin-top: 16px; margin-bottom: 10px; font-weight: 600;">Добавить данные</h4>
+                    <h4 style="margin-top: 0px; margin-bottom: 10px; font-weight: 600;">Добавить данные</h4>
                     <div style="display: flex; gap: 8px;">
                         <input type="text" v-model="youtubeUrl" placeholder="Insert YouTube link" class="form-select" style="flex: 1;" :disabled="isProcessingYouTube">
                         <button @click="addYouTubeData" :disabled="isProcessingYouTube || !youtubeUrl" style="min-width: 90px;">
@@ -285,7 +361,10 @@
                 </div>
             </div>
             <div v-if="currentPoint.email" class="complaint-detail">
-                <h3 class="detail-title">Selected Complaint</h3>
+                <h3 class="detail-title">
+                    Selected Complaint
+                    <button @click="closeComplaintDetail" class="close-btn">✕</button>
+                </h3>
                 <div class="detail-content">
                     <div class="detail-row">
                         <span class="detail-label">Email:</span>
@@ -376,7 +455,9 @@
                     currentStatusMessage: "",
                     countdownSeconds: 0,
                     countdownIntervalId: null,
-                    youtubeError: null
+                    youtubeError: null,
+                    searchType: "email",
+                    searchQuery: ""
                 }
             },
             mounted() {
@@ -712,7 +793,7 @@
                         const response = await fetch('/api/apply-tsne/', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({perplexity: this.step})
+                            body: JSON.stringify({perplexity: parseFloat(this.step)})
                         });
 
                         if (response.ok) {
@@ -989,6 +1070,9 @@
                     } finally {
                         this.isRegenerating = null;
                     }
+                },
+                closeComplaintDetail() {
+                    this.currentPoint = {};
                 }
             }
         }).mount('#app');
