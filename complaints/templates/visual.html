@@ -247,13 +247,25 @@
 
         <div class="right-panel panel">
             <div class="controls">
+                <div class="control-group">
+                    <label for="searchType" style="font-weight: 500; margin-bottom: 8px;">Поиск записи</label>
+                    <select id="searchType" class="form-select" v-model="searchType" style="margin-bottom: 10px;">
+                        <option value="email">Email</option>
+                        <option value="text">Текст</option>
+                        <option value="semantic">Смысл</option>
+                    </select>
+                    <input type="text" v-model="searchQuery" placeholder="Введите текст для поиска" class="form-select">
+                </div>
+
+                <hr style="margin: 20px 0; border: none; height: 1px; background-color: #e5e7eb;">
+                
                 <div class="zoom-buttons">
                     <button @click="zoom(1.2)">+</button>
                     <button @click="zoom(0.8)">-</button>
                     <button @click="resetView" style="background-color: #6b7280;">Reset View</button>
                 </div>
                 
-                <hr style="margin: 20px 0 15px; border: none; height: 1px; background-color: #e5e7eb;">
+                <hr style="margin: 20px 0 0px; border: none; height: 1px; background-color: #e5e7eb;">
                                 
                 <div class="control-group">
                     <h3 style="font-weight: 800; margin-top: 0;">Создать кластер</h3>
@@ -267,8 +279,10 @@
                     <button @click="resetSelection" style="background-color: #6b7280;">Сбросить выделение</button>
                 </div>
                 
+                <hr style="margin: 20px 0 0px; border: none; height: 1px; background-color: #e5e7eb;">
+                
                 <div class="youtube-import">
-                    <h4 style="margin-top: 16px; margin-bottom: 10px; font-weight: 600;">Добавить данные</h4>
+                    <h4 style="margin-top: 0px; margin-bottom: 10px; font-weight: 600;">Добавить данные</h4>
                     <div style="display: flex; gap: 8px;">
                         <input type="text" v-model="youtubeUrl" placeholder="Insert YouTube link" class="form-select" style="flex: 1;" :disabled="isProcessingYouTube">
                         <button @click="addYouTubeData" :disabled="isProcessingYouTube || !youtubeUrl" style="min-width: 90px;">
@@ -376,7 +390,9 @@
                     currentStatusMessage: "",
                     countdownSeconds: 0,
                     countdownIntervalId: null,
-                    youtubeError: null
+                    youtubeError: null,
+                    searchType: "email",
+                    searchQuery: ""
                 }
             },
             mounted() {
