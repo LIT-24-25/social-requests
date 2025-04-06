@@ -121,6 +121,8 @@ class CreateClusterWithComplaints(APIView):
         data  = new_cluster.generate_summary(model)
         new_cluster.name = data[0]
         new_cluster.summary = data[1]
+        if len(data) > 2:
+            new_cluster.model = data[2]
         new_cluster.save()
 
         return Response(
@@ -186,13 +188,18 @@ def regenerate_summary(request):
             if not cluster.model:
                 cluster.model = 'GigaChat'
                 cluster.save()
+            elif cluster.model != 'GigaChat':
+                cluster.model = 'OpenRouter'
+                cluster.save()
             
             # Регенерируем и сохраняем суммаризацию, используя модель из кластера
             result = cluster.generate_summary(cluster.model)
             
-            if isinstance(result, tuple) and len(result) == 2:
+            if isinstance(result, tuple):
                 cluster.name = result[0]
                 cluster.summary = result[1]
+                if len(result) > 2:
+                    cluster.model = result[2]
                 cluster.save()
                 
                 return JsonResponse({
