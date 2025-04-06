@@ -10,14 +10,15 @@ class OutputFormat(BaseModel):
     name: str = Field(description="Name of the cluster, that describes the main problem, containing 2-3 words", default='Не удалось сгенерировать название')
     summary: str = Field(description="Summary of the complaints, containing 10-20 words", default='Не удалось сгенерировать описание')
 
-def call_qwen(prompt):
+def call_openrouter(prompt):
     try:
         client = instructor.from_openai(OpenAI(
             base_url="https://openrouter.ai/api/v1",
             api_key=openrouter_token,
         ))
         completion = client.chat.completions.create(
-            model="qwen/qwen-plus",
+            model = "qwen/qwen-plus",
+            extra_body={"models": ["deepseek/deepseek-chat-v3-0324", "qwen/qwen-max"]},
             messages=[
                 {
                     "role": "user",
@@ -30,15 +31,16 @@ def call_qwen(prompt):
             timeout=60,
             max_retries=3
         )
+
         
         # Ensure we have valid name and summary
         name = completion.name if completion.name else 'Unnamed Cluster'
         summary = completion.summary if completion.summary else 'No summary available'
-        
-        return name, summary
+        model_name = completion._raw_response.model
+    
+        return name, summary, model_name
     except Exception as e:
-        print(f"Error in call_qwen: {str(e)}")
-        return "Error", "Failed to generate summary"
+        print(f"Error in call_openrouter: {str(e)}")
 
 def call_gigachat(prompt):
     payload = Chat(
