@@ -232,12 +232,12 @@
         
         /* Separator line style */
         .section-divider {
-            height: 5px;
-            min-height: 4px;
+            height: 2px;
+            min-height: 2px;
             background: linear-gradient(to right, rgba(229, 231, 235, 0.5), rgba(67, 97, 238, 0.3), rgba(229, 231, 235, 0.5));
-            margin: 20px 0;
+            margin: 15px 0;
             border: none;
-            border-radius: 3px;
+            border-radius: 2px;
             display: block;
             clear: both;
         }
@@ -382,10 +382,18 @@
     <script>
         const { createApp } = Vue;
 
+        // Отладочный вывод передаваемых данных
+        console.log('Django data from template:');
+        console.log('Total clusters: {{ total_clusters|default:"0" }}');
+        console.log('Clusters string: {{ clusters|escapejs }}');
+
         window.djangoData = {
             totalClusters: parseInt('{{ total_clusters|default:"0" }}'),
-            clusters: JSON.parse('{{ clusters|default:"[]"|escapejs }}')
+            clusters: JSON.parse('{{ clusters|default:"[]"|escapejs }}'),
+            projectId: '{{ project_id }}'
         };
+        
+        console.log('Initialized djangoData:', window.djangoData);
 
         class Point {
             constructor(id, x, y, info, email, name, cluster) {
@@ -452,9 +460,36 @@
                     searchQuery: ""
                 }
             },
-            mounted() {
+            async mounted() {
+                console.log('Vue app mounted');
+                console.log('Initial djangoData:', window.djangoData);
+                
+                // Set up canvas
                 this.initializeCanvas();
-                this.fetchPoints();
+                
+                // Fetch points from the server
+                await this.fetchPoints();
+                
+                // Set initial clusters from Django data
+                try {
+                    if (window.djangoData && window.djangoData.clusters) {
+                        console.log('Initial clusters from Django:', window.djangoData.clusters);
+                        this.clusters = window.djangoData.clusters; // They're already parsed in the data initialization
+                        this.totalClusters = this.clusters.length;
+                        console.log('Clusters initialized:', this.clusters.length);
+                    } else {
+                        console.log('No initial clusters from Django, fetching from API');
+                        await this.updateClustersPanel();
+                    }
+                } catch (e) {
+                    console.error('Error processing clusters from Django:', e);
+                    this.error = 'Error initializing clusters: ' + e.message;
+                    // Try to load clusters from API as fallback
+                    await this.updateClustersPanel();
+                }
+                
+                // Draw initial points
+                this.drawPoints();
             },
             beforeUnmount() {
                 // Clean up any timers when component is destroyed
@@ -658,16 +693,19 @@
                 // API methods
                 async fetchPoints() {
                     try {
-                        const response = await fetch('/api/complaints');
+                        console.log('Fetching points from API...');
+                        const response = await fetch('/project/{{ project_id }}/api/complaints/');
                         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
                         
                         const data = await response.json();
+                        console.log('Received data:', data);
                         if (!Array.isArray(data)) throw new Error('Invalid data format received');
                         
                         this.points = data.map(point => new Point(
                             point.id, point.x, point.y, point.text,
                             point.email, point.name, point.cluster
                         ));
+                        console.log('Points created:', this.points.length);
                         
                         // Restore highlighting for selected cluster if there is one
                         if (this.selectedClusterId) {
@@ -701,7 +739,7 @@
                     }
 
                     try {
-                        const response = await fetch('/api/create-cluster/', {
+                        const response = await fetch('/project/{{ project_id }}/api/create-cluster/', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ complaint_ids: selectedIds, model: this.model })
@@ -725,10 +763,12 @@
                         // Save current selected cluster ID
                         const currentSelectedClusterId = this.selectedClusterId;
                         
-                        const response = await fetch('/api/clusters/');
-                        if (!response.ok) throw new Error('Failed to fetch clusters');
+                        console.log('Fetching clusters from API...');
+                        const response = await fetch('/project/{{ project_id }}/api/clusters/');
+                        if (!response.ok) throw new Error(`Failed to fetch clusters: ${response.status}`);
                         
                         const clusters = await response.json();
+                        console.log('Received clusters:', clusters);
                         
                         this.totalClusters = clusters.length;
                         this.clusters = clusters.map(cluster => ({
@@ -736,6 +776,7 @@
                             name: cluster.name,
                             summary: cluster.summary
                         }));
+                        console.log('Clusters processed:', this.clusters.length);
                         
                         // Don't reset selected cluster here
                         // this.selectedClusterId = null;
@@ -770,7 +811,7 @@
                         this.drawPoints();
                     } catch (error) {
                         console.error('Error updating clusters panel:', error);
-                        this.error = 'Failed to update clusters: ' + error.message;
+                        this.error = `Failed to update clusters panel: ${error.message}`;
                     }
                 },
                 
@@ -823,7 +864,7 @@
                         
                         if (!this.clusterDetails[clusterId]) {
                             try {
-                                const response = await fetch(`/api/clusters/${clusterId}/details/`);
+                                const response = await fetch(`/project/{{ project_id }}/api/clusters/${clusterId}/details/`);
                                 if (!response.ok) throw new Error(`Failed to fetch cluster details: ${response.statusText}`);
                                 
                                 const data = await response.json();
@@ -885,7 +926,7 @@
                         this.youtubeError = null; // Clear any previous YouTube errors
                         this.currentStatusMessage = "Starting import process...";
                         
-                        const response = await fetch('/api/add-youtube/', {
+                        const response = await fetch('/project/{{ project_id }}/api/add-youtube/', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ 
@@ -929,7 +970,7 @@
                         // Clear any existing countdown interval
                         this.clearCountdownTimer();
                         
-                        const response = await fetch(`/api/task-status/${taskId}/`);
+                        const response = await fetch(`/project/{{ project_id }}/api/task-status/${taskId}/`);
                         if (response.ok) {
                             const data = await response.json();
                             
@@ -1023,7 +1064,7 @@
                 async regenerateSummary(clusterId) {
                     try {
                         this.isRegenerating = clusterId;
-                        const response = await fetch('/api/regenerate-summary/', {
+                        const response = await fetch('/project/{{ project_id }}/api/regenerate-summary/', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ cluster_id: clusterId })
