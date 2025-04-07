@@ -1,4 +1,3 @@
-import json
 from gigachat import GigaChat
 from gigachat.models import Chat, Messages, MessagesRole
 from clusters.instances import openrouter_token, gigachat_token
