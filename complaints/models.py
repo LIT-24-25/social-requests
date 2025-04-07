@@ -1,9 +1,10 @@
 from django.db import models
 from clusters.models import Cluster
+from projects.models import Project
 from gigachat import GigaChat
 from gigachat.exceptions import GigaChatException
 from clusters.instances import gigachat_token
-from typing import List, Dict, Tuple
+from typing import List
 import logging
 
 logger = logging.getLogger(__name__)
@@ -22,6 +23,11 @@ class Complaint(models.Model):
         on_delete=models.CASCADE,
         null=True,
         default=None)
+    project = models.ForeignKey(
+        Project,
+        null=True,
+        default=None,
+        on_delete=models.PROTECT)
 
     def call_gigachat_embeddings(self, text=None, giga_client=None):
         try:
@@ -71,7 +77,3 @@ class Complaint(models.Model):
             
         logger.info(f"Batch processed {len(complaints)} complaints for embeddings")
         return processed_complaints
-
-    def save(self, *args, **kwargs):
-        # Удаляем создание эмбеддингов из метода save
-        super().save(*args, **kwargs)

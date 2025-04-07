@@ -1,14 +1,19 @@
 from django.db import models
-from gigachat import GigaChat
 from gigachat.exceptions import GigaChatException
-from .mymodels import call_gigachat, call_qwen
+from .mymodels import call_gigachat, call_openrouter
+from projects.models import Project
 import random
 
 
 class Cluster(models.Model):
     name = models.CharField(max_length=100, default='Unnamed Cluster')
     summary = models.TextField()
-    model = models.CharField(max_length=50, default='GigaChat')  # Field to store which model was used
+    model = models.CharField(max_length=50, default='No model')  # Field to store which model was used
+    project = models.ForeignKey(
+        Project,
+        null=True,
+        default=None,
+        on_delete=models.PROTECT)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -53,7 +58,7 @@ class Cluster(models.Model):
 
                         {combined_text}
                         """
-                response = call_qwen(prompt)
+                response = call_openrouter(prompt)
             return response
 
         except GigaChatException as e:

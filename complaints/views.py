@@ -21,19 +21,54 @@ import uuid
 from django.core.cache import cache
 import re
 from urllib.parse import urlparse
+from projects.models import Project  # Added for the new create_complaint method
 
 logger = logging.getLogger(__name__)
 
 class ComplaintListCreate(generics.ListCreateAPIView):
-    queryset = Complaint.objects.all()
     serializer_class = ComplaintSerializer
+    
+    def get_queryset(self):
+        project_id = self.kwargs.get('project_id')
+        logger.info(f"ComplaintListCreate.get_queryset called with project_id={project_id}")
+        
+        if project_id:
+            queryset = Complaint.objects.filter(project_id=project_id)
+            logger.info(f"Found {queryset.count()} complaints for project_id={project_id}")
+            return queryset
+        
+        queryset = Complaint.objects.all()
+        logger.info(f"Found {queryset.count()} complaints (all)")
+        return queryset
+    
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context.update({'view': self})
+        return context
 
 class ComplaintDetail(generics.RetrieveUpdateDestroyAPIView):
-    queryset = Complaint.objects.all()
     serializer_class = ComplaintSerializer
+    
+    def get_queryset(self):
+        project_id = self.kwargs.get('project_id')
+        logger.info(f"ComplaintDetail.get_queryset called with project_id={project_id}")
+        
+        if project_id:
+            queryset = Complaint.objects.filter(project_id=project_id)
+            logger.info(f"Found {queryset.count()} complaints for project_id={project_id}")
+            return queryset
+        
+        queryset = Complaint.objects.all()
+        logger.info(f"Found {queryset.count()} complaints (all)")
+        return queryset
+    
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context.update({'view': self})
+        return context
 
 @csrf_exempt
-def create_complaint(request):
+def create_complaint(request, project_id=None):
     if request.method == 'POST':
         try:
             # Парсим JSON данные из тела запроса
@@ -50,15 +85,20 @@ def create_complaint(request):
                     'success': False,
                     'message': 'Все поля должны быть заполнены'
                 }, status=400)
-
+            
             # Создаем новую жалобу
+            project = None
+            if project_id:
+                project = get_object_or_404(Project, id=project_id)
+                
             new_item = Complaint.objects.create(
                 email=user_email,
                 name=complaint_name,
                 text=complaint_description,
                 x=rnd.randint(5, 400),
                 y=rnd.randint(5, 400),
-                cluster=None
+                cluster=None,
+                project=project
             )
             
             # Генерируем эмбеддинги для жалобы
@@ -79,13 +119,19 @@ def create_complaint(request):
                 'message': 'Неверный формат данных'
             }, status=400)
             
-    return render(request, 'create_complaint.html')
+    return render(request, 'create_complaint.html', {'project_id': project_id})
 
-def visual_view(request):
+def visual_view(request, project_id):
+    logger.info(f"visual_view called with project_id={project_id}")
+    
     # Get clusters using ClusterListCreate API
     cluster_view = ClusterListCreate()
     cluster_view.request = request
+    # Передаем project_id из параметров URL в kwargs
+    cluster_view.kwargs = {'project_id': project_id}
     clusters = cluster_view.get_queryset()
+    
+    logger.info(f"visual_view: Found {clusters.count()} clusters for project_id={project_id}")
     
     clusters_data = json.dumps([{
         'id': cluster.id,
@@ -96,32 +142,57 @@ def visual_view(request):
     context = {
         'total_clusters': clusters.count(),
         'clusters': clusters_data,
+        'project_id': project_id,  # Добавляем project_id в контекст
     }
+    
+    logger.info(f"visual_view: Rendering template with {clusters.count()} clusters")
     return render(request, 'visual.html', context)
 
 class CreateClusterWithComplaints(APIView):
-    def post(self, request):
+    def post(self, request, project_id=None):
+        logger.info(f"CreateClusterWithComplaints.post called with project_id={project_id}")
+        
         complaint_ids = request.data.get('complaint_ids', [])
         model = request.data.get('model')
+        
+        logger.info(f"Creating cluster with {len(complaint_ids)} complaints, model={model}")
+        
+        # Получаем проект по ID, если передан
+        project = None
+        if project_id:
+            project = get_object_or_404(Project, id=project_id)
+            logger.info(f"Found project with id={project_id}")
         
         # Создаем новый кластер
         new_cluster = Cluster.objects.create(
             name=f"Cluster {Cluster.objects.count() + 1}",
             summary="Генерация описания...",  # Временный текст
-            model=model  # Save the model name
+            model=model,  # Save the model name
+            project=project  # Добавляем проект в кластер
         )
+        logger.info(f"Created new cluster with id={new_cluster.id}")
 
         # Привязываем жалобы и обновляем кластер
         for complaint_id in complaint_ids:
-            complaint = get_object_or_404(Complaint, id=complaint_id)
-            complaint.cluster = new_cluster
-            complaint.save()
+            try:
+                complaint = get_object_or_404(Complaint, id=complaint_id)
+                complaint.cluster = new_cluster
+                complaint.save()
+                logger.info(f"Added complaint id={complaint_id} to cluster id={new_cluster.id}")
+            except Exception as e:
+                logger.error(f"Error adding complaint id={complaint_id} to cluster: {str(e)}")
         
         # Генерируем и сохраняем суммаризацию
-        data  = new_cluster.generate_summary(model)
-        new_cluster.name = data[0]
-        new_cluster.summary = data[1]
-        new_cluster.save()
+        try:
+            data = new_cluster.generate_summary(model)
+            new_cluster.name = data[0]
+            new_cluster.summary = data[1]
+            if len(data) > 2:
+                new_cluster.model = data[2]
+            new_cluster.save()
+            logger.info(f"Generated summary for cluster id={new_cluster.id}")
+        except Exception as e:
+            logger.error(f"Error generating summary for cluster id={new_cluster.id}: {str(e)}")
 
         return Response(
             {"message": "Cluster created successfully", "cluster_id": new_cluster.id},
@@ -150,9 +221,13 @@ def apply_tsne_api(request):
     else:
         return JsonResponse({"error": "Метод не разрешен"}, status=405)
 
-def get_cluster_details(request, cluster_id):
+def get_cluster_details(request, cluster_id, project_id=None):
     try:
-        cluster = get_object_or_404(Cluster, id=cluster_id)
+        if project_id:
+            cluster = get_object_or_404(Cluster, id=cluster_id, project_id=project_id)
+        else:
+            cluster = get_object_or_404(Cluster, id=cluster_id)
+            
         complaints = Complaint.objects.filter(cluster=cluster)
         
         data = {
@@ -170,7 +245,7 @@ def get_cluster_details(request, cluster_id):
         return JsonResponse({'error': str(e)}, status=500)
 
 @csrf_exempt
-def regenerate_summary(request):
+def regenerate_summary(request, project_id=None):
     if request.method == 'POST':
         try:
             data = json.loads(request.body)
@@ -179,20 +254,28 @@ def regenerate_summary(request):
             if cluster_id is None:
                 return JsonResponse({"error": "Параметр cluster_id отсутствует"}, status=400)
             
-            # Получаем кластер
-            cluster = get_object_or_404(Cluster, id=cluster_id)
+            # Получаем кластер, проверяя project_id если указан
+            if project_id:
+                cluster = get_object_or_404(Cluster, id=cluster_id, project_id=project_id)
+            else:
+                cluster = get_object_or_404(Cluster, id=cluster_id)
             
             # Ensure model is set, default to GigaChat if not
             if not cluster.model:
                 cluster.model = 'GigaChat'
                 cluster.save()
+            elif cluster.model != 'GigaChat':
+                cluster.model = 'OpenRouter'
+                cluster.save()
             
             # Регенерируем и сохраняем суммаризацию, используя модель из кластера
             result = cluster.generate_summary(cluster.model)
             
-            if isinstance(result, tuple) and len(result) == 2:
+            if isinstance(result, tuple):
                 cluster.name = result[0]
                 cluster.summary = result[1]
+                if len(result) > 2:
+                    cluster.model = result[2]
                 cluster.save()
                 
                 return JsonResponse({
