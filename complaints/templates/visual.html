@@ -463,6 +463,7 @@
                     lastPanX: 0,
                     lastPanY: 0,
                     totalClusters: window.djangoData.totalClusters || 0,
+                    projectId: window.djangoData.projectId || 1,
                     clusters: window.djangoData.clusters || [],
                     selectedClusterId: null,
                     clusterDetails: {},
@@ -952,7 +953,8 @@
                             body: JSON.stringify({ 
                                 video_url: this.youtubeUrl,
                                 max_results: 1000,  // Default max results
-                                batch_size: 50     // Default batch size
+                                batch_size: 50,     // Default batch size
+                                project_id: this.projectId
                             })
                         });
 

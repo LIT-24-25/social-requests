@@ -17,6 +17,7 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument('video_url', type=str, help='URL of the YouTube video')
+        parser.add_argument('project_id', type=int, help='ID of the project')
         parser.add_argument(
             '--max-results',
             type=int,
@@ -127,7 +128,7 @@ class Command(BaseCommand):
                         part="snippet",
                         parentId=parent_id,
                         pageToken=response['nextPageToken'],
-                        maxResults=min(max_results - len(replies), 100),
+                        maxResults=min(max_results - len(replies), 120) if (max_results - len(replies)) > 0 else 120,
                         textFormat="plainText"
                     )
                 else:
@@ -172,7 +173,7 @@ class Command(BaseCommand):
                 request = youtube.commentThreads().list(
                     part="snippet,replies",
                     videoId=video_id,
-                    maxResults=min(max_results, 100),
+                    maxResults=min(max_results, 120) if max_results > 0 else 120,
                     textFormat="plainText"
                 )
 
@@ -209,7 +210,7 @@ class Command(BaseCommand):
                             part="snippet,replies",
                             videoId=video_id,
                             pageToken=response['nextPageToken'],
-                            maxResults=min(max_results - top_level_count, 100),
+                            maxResults=min(max_results - top_level_count, 120) if (max_results - top_level_count) > 0 else 120,
                             textFormat="plainText"
                         )
                     else:
@@ -240,7 +241,7 @@ class Command(BaseCommand):
             # Convert other errors to a generic exception
             raise Exception(f"Error processing YouTube URL: {str(e)}")
 
-    def prepare_batches(self, comments: List[Dict], batch_size: int) -> Tuple[List[Complaint], List[str]]:
+    def prepare_batches(self, comments: List[Dict], batch_size: int, project_id: int) -> Tuple[List[Complaint], List[str]]:
         """
         Prepare batches of complaints and their text for batch embedding processing.
         
@@ -262,7 +263,8 @@ class Command(BaseCommand):
                     email=comment['email'],
                     text=comment['text'],
                     x=random.randint(0, 100),
-                    y=random.randint(0, 100)
+                    y=random.randint(0, 100),
+                    project_id=project_id
                 )
                 complaints.append(complaint)
                 texts.append(comment['text'])
@@ -322,8 +324,18 @@ class Command(BaseCommand):
         Main command handler.
         """
         video_url = options['video_url']
-        max_results = options['max_results']
-        batch_size = options['batch_size']
+        project_id = options['project_id']
+        
+        # Validate and sanitize parameters
+        max_results = options.get('max_results', 1000)
+        if max_results <= 0:
+            max_results = 1000
+            logger.warning("Invalid max_results value, using default (1000)")
+            
+        batch_size = options.get('batch_size', 50)
+        if batch_size <= 0:
+            batch_size = 50
+            logger.warning("Invalid batch_size value, using default (50)")
 
         logger.info("Starting YouTube comments processing")
         
@@ -366,7 +378,7 @@ class Command(BaseCommand):
             
             # Prepare batches of complaints and their texts
             overall_progress.set_description("Preparing complaint batches")
-            complaints, texts = self.prepare_batches(comments, batch_size)
+            complaints, texts = self.prepare_batches(comments, batch_size, project_id)
             logger.info(f"Prepared {len(complaints)} complaints for batch processing")
             overall_progress.update(1)
             
