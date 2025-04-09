@@ -136,7 +136,8 @@ def visual_view(request, project_id):
     clusters_data = json.dumps([{
         'id': cluster.id,
         'name': cluster.name,
-        'summary': cluster.summary
+        'summary': cluster.summary,
+        'size': cluster.size
     } for cluster in clusters])
     
     context = {
@@ -168,7 +169,8 @@ class CreateClusterWithComplaints(APIView):
             name=f"Cluster {Cluster.objects.count() + 1}",
             summary="Генерация описания...",  # Временный текст
             model=model,  # Save the model name
-            project=project  # Добавляем проект в кластер
+            project=project,  # Добавляем проект в кластер
+            size = len(complaint_ids)
         )
         logger.info(f"Created new cluster with id={new_cluster.id}")
 
@@ -233,6 +235,7 @@ def get_cluster_details(request, cluster_id, project_id=None):
         data = {
             'summary': cluster.summary,
             'model': cluster.model,
+            'size': cluster.size,
             'complaints': [{
                 'id': complaint.id,
                 'name': complaint.name,
@@ -282,7 +285,8 @@ def regenerate_summary(request, project_id=None):
                     "message": "Суммаризация кластера успешно обновлена",
                     "name": cluster.name,
                     "summary": cluster.summary,
-                    "model": cluster.model
+                    "model": cluster.model,
+                    "size": cluster.size
                 })
             else:
                 return JsonResponse({"error": "Некорректный результат генерации"}, status=500)
