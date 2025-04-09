@@ -124,29 +124,14 @@ def create_complaint(request, project_id=None):
 def visual_view(request, project_id):
     logger.info(f"visual_view called with project_id={project_id}")
     
-    # Get clusters using ClusterListCreate API
-    cluster_view = ClusterListCreate()
-    cluster_view.request = request
-    # Передаем project_id из параметров URL в kwargs
-    cluster_view.kwargs = {'project_id': project_id}
-    clusters = cluster_view.get_queryset()
-    
-    logger.info(f"visual_view: Found {clusters.count()} clusters for project_id={project_id}")
-    
-    clusters_data = json.dumps([{
-        'id': cluster.id,
-        'name': cluster.name,
-        'summary': cluster.summary,
-        'size': cluster.size
-    } for cluster in clusters])
+    # No longer fetching clusters here
+    # Instead, the frontend will fetch them via API
     
     context = {
-        'total_clusters': clusters.count(),
-        'clusters': clusters_data,
-        'project_id': project_id,  # Добавляем project_id в контекст
+        'project_id': project_id,  # Only pass project_id
     }
     
-    logger.info(f"visual_view: Rendering template with {clusters.count()} clusters")
+    logger.info(f"visual_view: Rendering template without clusters (will be loaded via API)")
     return render(request, 'visual.html', context)
 
 class CreateClusterWithComplaints(APIView):
@@ -207,7 +192,7 @@ def apply_tsne(perplexity):
 
 # API для вызова apply_tsne
 @csrf_exempt
-def apply_tsne_api(request):
+def apply_tsne_api(request, project_id):
     if request.method == 'POST':
         try:
             data = json.loads(request.body)

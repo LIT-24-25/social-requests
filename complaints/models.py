@@ -25,8 +25,8 @@ class Complaint(models.Model):
         default=None)
     project = models.ForeignKey(
         Project,
-        null=True,
-        default=None,
+        null=False,
+        default=1,
         on_delete=models.PROTECT)
 
     def call_gigachat_embeddings(self, text=None, giga_client=None):

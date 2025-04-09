@@ -400,14 +400,10 @@
     <script>
         const { createApp } = Vue;
 
-        // Отладочный вывод передаваемых данных
-        console.log('Django data from template:');
-        console.log('Total clusters: {{ total_clusters|default:"0" }}');
-        console.log('Clusters string: {{ clusters|escapejs }}');
-
+        // Initialize with minimal data, will load via API
         window.djangoData = {
-            totalClusters: parseInt('{{ total_clusters|default:"0" }}'),
-            clusters: JSON.parse('{{ clusters|default:"[]"|escapejs }}'),
+            totalClusters: 0,
+            clusters: [],
             projectId: '{{ project_id }}'
         };
         
@@ -462,9 +458,8 @@
                     isPanning: false,
                     lastPanX: 0,
                     lastPanY: 0,
-                    totalClusters: window.djangoData.totalClusters || 0,
-                    projectId: window.djangoData.projectId || 1,
-                    clusters: window.djangoData.clusters || [],
+                    totalClusters: 0,
+                    clusters: [],
                     selectedClusterId: null,
                     clusterDetails: {},
                     error: null,
@@ -481,7 +476,6 @@
             },
             async mounted() {
                 console.log('Vue app mounted');
-                console.log('Initial djangoData:', window.djangoData);
                 
                 // Set up canvas
                 this.initializeCanvas();
@@ -489,23 +483,9 @@
                 // Fetch points from the server
                 await this.fetchPoints();
                 
-                // Set initial clusters from Django data
-                try {
-                    if (window.djangoData && window.djangoData.clusters) {
-                        console.log('Initial clusters from Django:', window.djangoData.clusters);
-                        this.clusters = window.djangoData.clusters; // They're already parsed in the data initialization
-                        this.totalClusters = this.clusters.length;
-                        console.log('Clusters initialized:', this.clusters.length);
-                    } else {
-                        console.log('No initial clusters from Django, fetching from API');
-                        await this.updateClustersPanel();
-                    }
-                } catch (e) {
-                    console.error('Error processing clusters from Django:', e);
-                    this.error = 'Error initializing clusters: ' + e.message;
-                    // Try to load clusters from API as fallback
-                    await this.updateClustersPanel();
-                }
+                // Always load clusters via API
+                console.log('Loading clusters via API...');
+                await this.updateClustersPanel();
                 
                 // Draw initial points
                 this.drawPoints();
@@ -843,7 +823,7 @@
                 
                 async applyTsne() {
                     try {
-                        const response = await fetch('/api/apply-tsne/', {
+                        const response = await fetch('/project/{{ project_id }}/api/apply_tsne/', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({perplexity: parseFloat(this.step)})
