@@ -11,8 +11,8 @@ class Cluster(models.Model):
     model = models.CharField(max_length=50, default='No model')  # Field to store which model was used
     project = models.ForeignKey(
         Project,
-        null=True,
-        default=None,
+        null=False,
+        default=1,
         on_delete=models.PROTECT)
     size = models.IntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
