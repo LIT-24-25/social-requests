@@ -13,7 +13,7 @@ class Cluster(models.Model):
         Project,
         null=False,
         default=1,
-        on_delete=models.PROTECT)
+        on_delete=models.SET_DEFAULT)
     size = models.IntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -30,7 +30,6 @@ class Cluster(models.Model):
             complaints_list = list(complaints)
             complaints_for_summary = random.sample(complaints_list, min(amount, len(complaints_list)))
             complaints_texts = [f"Жалоба {i + 1}: {c.text}" for i, c in enumerate(complaints_for_summary)]
-            print(f"amount: {amount}")
 
             combined_text = "\n".join(complaints_texts)
             name = "unable to generate name for cluster"
