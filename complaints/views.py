@@ -22,6 +22,8 @@ from django.core.cache import cache
 import re
 from urllib.parse import urlparse
 from projects.models import Project  # Added for the new create_complaint method
+import numpy as np
+from sklearn.metrics.pairwise import cosine_similarity
 
 logger = logging.getLogger(__name__)
 
@@ -395,3 +397,108 @@ def task_status_api(request, task_id, project_id=None):
         return JsonResponse(tasks_status[task_id])
     else:
         return JsonResponse({"status": "UNKNOWN", "result": None}, status=404)
+
+@csrf_exempt
+def search_complaints(request, project_id=None):
+    """
+    API endpoint for searching complaints based on different criteria.
+    
+    Search types:
+    - email: Search by email address (exact or partial match)
+    - text: Search in complaint text (contains match)
+    - semantic: Search by semantic similarity using embeddings
+    """
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            search_type = data.get('search_type', 'text')
+            search_query = data.get('search_query', '')
+            
+            # Check for empty search query
+            if not search_query.strip():
+                return JsonResponse({'error': 'Search query cannot be empty'}, status=400)
+            
+            # Get complaints for the project
+            if project_id:
+                complaints = Complaint.objects.filter(project_id=project_id)
+            else:
+                complaints = Complaint.objects.all()
+            
+            results = []
+            
+            # Perform search based on search type
+            if search_type == 'email':
+                # Case-insensitive partial match on email
+                filtered_complaints = complaints.filter(email__icontains=search_query)
+                results = list(filtered_complaints.values('id', 'email', 'name', 'text', 'x', 'y', 'cluster'))
+                
+            elif search_type == 'text':
+                # Case-insensitive text search in name or text
+                filtered_complaints = complaints.filter(text__icontains=search_query)
+                results = list(filtered_complaints.values('id', 'email', 'name', 'text', 'x', 'y', 'cluster'))
+                
+            elif search_type == 'semantic':
+                # Semantic search using embeddings
+                try:
+                    # Generate embedding for the search query
+                    query_complaint = Complaint(text=search_query)
+                    query_embedding = query_complaint.call_gigachat_embeddings()
+                    
+                    # Filter complaints with embeddings
+                    complaints_with_embeddings = complaints.exclude(embedding=None)
+                    
+                    # Calculate similarities and get top results
+                    similar_complaints = []
+                    
+                    for complaint in complaints_with_embeddings:
+                        if complaint.embedding is not None:
+                            # Calculate cosine similarity
+                            similarity = cosine_similarity(
+                                [query_embedding], 
+                                [complaint.embedding]
+                            )[0][0]
+                            
+                            similar_complaints.append({
+                                'complaint': complaint,
+                                'similarity': similarity
+                            })
+                    
+                    # Sort by similarity (highest first)
+                    similar_complaints.sort(key=lambda x: x['similarity'], reverse=True)
+                    
+                    # Get top results (limit to 5)
+                    top_results = similar_complaints[:5]
+                    
+                    # Create results with similarity score and sorted by similarity
+                    results = [
+                        {
+                            'id': item['complaint'].id,
+                            'email': item['complaint'].email,
+                            'name': item['complaint'].name,
+                            'text': item['complaint'].text,
+                            'x': item['complaint'].x,
+                            'y': item['complaint'].y,
+                            'cluster': item['complaint'].cluster_id,
+                            'similarity': round(float(item['similarity']), 3)
+                        }
+                        for item in top_results
+                    ]
+                                        
+                except Exception as e:
+                    logger.error(f"Error during semantic search: {str(e)}")
+                    return JsonResponse({'error': f'Semantic search error: {str(e)}'}, status=500)
+            else:
+                return JsonResponse({'error': 'Invalid search type'}, status=400)
+            
+            # Return the search results
+            return JsonResponse({
+                'count': len(results),
+                'results': results
+            })
+            
+        except json.JSONDecodeError:
+            return JsonResponse({'error': 'Invalid JSON data'}, status=400)
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+    
+    return JsonResponse({'error': 'Only POST method is supported'}, status=405)
