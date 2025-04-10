@@ -124,28 +124,14 @@ def create_complaint(request, project_id=None):
 def visual_view(request, project_id):
     logger.info(f"visual_view called with project_id={project_id}")
     
-    # Get clusters using ClusterListCreate API
-    cluster_view = ClusterListCreate()
-    cluster_view.request = request
-    # Передаем project_id из параметров URL в kwargs
-    cluster_view.kwargs = {'project_id': project_id}
-    clusters = cluster_view.get_queryset()
-    
-    logger.info(f"visual_view: Found {clusters.count()} clusters for project_id={project_id}")
-    
-    clusters_data = json.dumps([{
-        'id': cluster.id,
-        'name': cluster.name,
-        'summary': cluster.summary
-    } for cluster in clusters])
+    # No longer fetching clusters here
+    # Instead, the frontend will fetch them via API
     
     context = {
-        'total_clusters': clusters.count(),
-        'clusters': clusters_data,
-        'project_id': project_id,  # Добавляем project_id в контекст
+        'project_id': project_id,  # Only pass project_id
     }
     
-    logger.info(f"visual_view: Rendering template with {clusters.count()} clusters")
+    logger.info(f"visual_view: Rendering template without clusters (will be loaded via API)")
     return render(request, 'visual.html', context)
 
 class CreateClusterWithComplaints(APIView):
@@ -168,7 +154,8 @@ class CreateClusterWithComplaints(APIView):
             name=f"Cluster {Cluster.objects.count() + 1}",
             summary="Генерация описания...",  # Временный текст
             model=model,  # Save the model name
-            project=project  # Добавляем проект в кластер
+            project=project,  # Добавляем проект в кластер
+            size = len(complaint_ids)
         )
         logger.info(f"Created new cluster with id={new_cluster.id}")
 
@@ -205,7 +192,7 @@ def apply_tsne(perplexity):
 
 # API для вызова apply_tsne
 @csrf_exempt
-def apply_tsne_api(request):
+def apply_tsne_api(request, project_id):
     if request.method == 'POST':
         try:
             data = json.loads(request.body)
@@ -233,6 +220,7 @@ def get_cluster_details(request, cluster_id, project_id=None):
         data = {
             'summary': cluster.summary,
             'model': cluster.model,
+            'size': cluster.size,
             'complaints': [{
                 'id': complaint.id,
                 'name': complaint.name,
@@ -282,7 +270,8 @@ def regenerate_summary(request, project_id=None):
                     "message": "Суммаризация кластера успешно обновлена",
                     "name": cluster.name,
                     "summary": cluster.summary,
-                    "model": cluster.model
+                    "model": cluster.model,
+                    "size": cluster.size
                 })
             else:
                 return JsonResponse({"error": "Некорректный результат генерации"}, status=500)
@@ -316,10 +305,19 @@ def is_valid_youtube_url(url):
     except Exception as e:
         return False, f"Error validating URL: {str(e)}"
 
-def run_add_youtube_command(task_id, video_url, max_results, batch_size):
+def run_add_youtube_command(task_id, video_url, max_results, batch_size, project_id):
     try:
         # Update task status to started
         tasks_status[task_id] = {'status': 'STARTED', 'result': None}
+        
+        # Validate parameters
+        if max_results <= 0:
+            max_results = 1000  # Set a default if invalid
+            logger.warning(f"Invalid max_results value, using default (1000)")
+            
+        if batch_size <= 0:
+            batch_size = 50  # Set a default if invalid
+            logger.warning(f"Invalid batch_size value, using default (50)")
         
         # Validate YouTube URL
         is_valid, message = is_valid_youtube_url(video_url)
@@ -329,7 +327,7 @@ def run_add_youtube_command(task_id, video_url, max_results, batch_size):
             return
         
         # Run the command
-        call_command('add_youtube', video_url, max_results=max_results, batch_size=batch_size)
+        call_command('add_youtube', video_url, project_id, max_results=max_results, batch_size=batch_size)
         
         # Update task status to success
         tasks_status[task_id] = {
@@ -342,13 +340,26 @@ def run_add_youtube_command(task_id, video_url, max_results, batch_size):
         logger.error(f"Error in YouTube import task {task_id}: {str(e)}")
 
 @csrf_exempt
-def add_youtube_api(request):
+def add_youtube_api(request, project_id=None):
     if request.method == 'POST':
         try:
             data = json.loads(request.body)
             video_url = data.get('video_url')
-            max_results = data.get('max_results', 1000)
-            batch_size = data.get('batch_size', 50)
+            
+            # Validate and sanitize parameters
+            try:
+                max_results = int(data.get('max_results', 1000))
+                if max_results <= 0:
+                    max_results = 1000  # Use default if invalid
+            except (TypeError, ValueError):
+                max_results = 1000  # Use default if conversion fails
+                
+            try:
+                batch_size = int(data.get('batch_size', 50))
+                if batch_size <= 0:
+                    batch_size = 50  # Use default if invalid
+            except (TypeError, ValueError):
+                batch_size = 50  # Use default if conversion fails
             
             # Validate YouTube URL before starting the thread
             is_valid, message = is_valid_youtube_url(video_url)
@@ -361,7 +372,7 @@ def add_youtube_api(request):
             # Start the command in a separate thread
             thread = threading.Thread(
                 target=run_add_youtube_command, 
-                args=(task_id, video_url, max_results, batch_size)
+                args=(task_id, video_url, max_results, batch_size, project_id)
             )
             thread.daemon = True  # Thread will exit when main program exits
             thread.start()
@@ -378,7 +389,7 @@ def add_youtube_api(request):
         return JsonResponse({"error": "Method not allowed"}, status=405)
 
 @csrf_exempt
-def task_status_api(request, task_id):
+def task_status_api(request, task_id, project_id=None):
     """Get the status of a background task"""
     if task_id in tasks_status:
         return JsonResponse(tasks_status[task_id])
