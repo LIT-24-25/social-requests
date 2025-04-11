@@ -22,6 +22,8 @@ from django.core.cache import cache
 import re
 from urllib.parse import urlparse
 from projects.models import Project  # Added for the new create_complaint method
+import numpy as np
+from sklearn.metrics.pairwise import cosine_similarity
 
 logger = logging.getLogger(__name__)
 
@@ -154,7 +156,8 @@ class CreateClusterWithComplaints(APIView):
             name=f"Cluster {Cluster.objects.count() + 1}",
             summary="Генерация описания...",  # Временный текст
             model=model,  # Save the model name
-            project=project  # Добавляем проект в кластер
+            project=project,  # Добавляем проект в кластер
+            size = len(complaint_ids)
         )
         logger.info(f"Created new cluster with id={new_cluster.id}")
 
@@ -219,6 +222,7 @@ def get_cluster_details(request, cluster_id, project_id=None):
         data = {
             'summary': cluster.summary,
             'model': cluster.model,
+            'size': cluster.size,
             'complaints': [{
                 'id': complaint.id,
                 'name': complaint.name,
@@ -268,7 +272,8 @@ def regenerate_summary(request, project_id=None):
                     "message": "Суммаризация кластера успешно обновлена",
                     "name": cluster.name,
                     "summary": cluster.summary,
-                    "model": cluster.model
+                    "model": cluster.model,
+                    "size": cluster.size
                 })
             else:
                 return JsonResponse({"error": "Некорректный результат генерации"}, status=500)
@@ -302,10 +307,19 @@ def is_valid_youtube_url(url):
     except Exception as e:
         return False, f"Error validating URL: {str(e)}"
 
-def run_add_youtube_command(task_id, video_url, max_results, batch_size):
+def run_add_youtube_command(task_id, video_url, max_results, batch_size, project_id):
     try:
         # Update task status to started
         tasks_status[task_id] = {'status': 'STARTED', 'result': None}
+        
+        # Validate parameters
+        if max_results <= 0:
+            max_results = 1000  # Set a default if invalid
+            logger.warning(f"Invalid max_results value, using default (1000)")
+            
+        if batch_size <= 0:
+            batch_size = 50  # Set a default if invalid
+            logger.warning(f"Invalid batch_size value, using default (50)")
         
         # Validate YouTube URL
         is_valid, message = is_valid_youtube_url(video_url)
@@ -315,7 +329,7 @@ def run_add_youtube_command(task_id, video_url, max_results, batch_size):
             return
         
         # Run the command
-        call_command('add_youtube', video_url, max_results=max_results, batch_size=batch_size)
+        call_command('add_youtube', video_url, project_id, max_results=max_results, batch_size=batch_size)
         
         # Update task status to success
         tasks_status[task_id] = {
@@ -328,13 +342,26 @@ def run_add_youtube_command(task_id, video_url, max_results, batch_size):
         logger.error(f"Error in YouTube import task {task_id}: {str(e)}")
 
 @csrf_exempt
-def add_youtube_api(request):
+def add_youtube_api(request, project_id=None):
     if request.method == 'POST':
         try:
             data = json.loads(request.body)
             video_url = data.get('video_url')
-            max_results = data.get('max_results', 1000)
-            batch_size = data.get('batch_size', 50)
+            
+            # Validate and sanitize parameters
+            try:
+                max_results = int(data.get('max_results', 1000))
+                if max_results <= 0:
+                    max_results = 1000  # Use default if invalid
+            except (TypeError, ValueError):
+                max_results = 1000  # Use default if conversion fails
+                
+            try:
+                batch_size = int(data.get('batch_size', 50))
+                if batch_size <= 0:
+                    batch_size = 50  # Use default if invalid
+            except (TypeError, ValueError):
+                batch_size = 50  # Use default if conversion fails
             
             # Validate YouTube URL before starting the thread
             is_valid, message = is_valid_youtube_url(video_url)
@@ -347,7 +374,7 @@ def add_youtube_api(request):
             # Start the command in a separate thread
             thread = threading.Thread(
                 target=run_add_youtube_command, 
-                args=(task_id, video_url, max_results, batch_size)
+                args=(task_id, video_url, max_results, batch_size, project_id)
             )
             thread.daemon = True  # Thread will exit when main program exits
             thread.start()
@@ -364,9 +391,114 @@ def add_youtube_api(request):
         return JsonResponse({"error": "Method not allowed"}, status=405)
 
 @csrf_exempt
-def task_status_api(request, task_id):
+def task_status_api(request, task_id, project_id=None):
     """Get the status of a background task"""
     if task_id in tasks_status:
         return JsonResponse(tasks_status[task_id])
     else:
         return JsonResponse({"status": "UNKNOWN", "result": None}, status=404)
+
+@csrf_exempt
+def search_complaints(request, project_id=None):
+    """
+    API endpoint for searching complaints based on different criteria.
+    
+    Search types:
+    - email: Search by email address (exact or partial match)
+    - text: Search in complaint text (contains match)
+    - semantic: Search by semantic similarity using embeddings
+    """
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            search_type = data.get('search_type', 'text')
+            search_query = data.get('search_query', '')
+            
+            # Check for empty search query
+            if not search_query.strip():
+                return JsonResponse({'error': 'Search query cannot be empty'}, status=400)
+            
+            # Get complaints for the project
+            if project_id:
+                complaints = Complaint.objects.filter(project_id=project_id)
+            else:
+                complaints = Complaint.objects.all()
+            
+            results = []
+            
+            # Perform search based on search type
+            if search_type == 'email':
+                # Case-insensitive partial match on email
+                filtered_complaints = complaints.filter(email__icontains=search_query)
+                results = list(filtered_complaints.values('id', 'email', 'name', 'text', 'x', 'y', 'cluster'))
+                
+            elif search_type == 'text':
+                # Case-insensitive text search in name or text
+                filtered_complaints = complaints.filter(text__icontains=search_query)
+                results = list(filtered_complaints.values('id', 'email', 'name', 'text', 'x', 'y', 'cluster'))
+                
+            elif search_type == 'semantic':
+                # Semantic search using embeddings
+                try:
+                    # Generate embedding for the search query
+                    query_complaint = Complaint(text=search_query)
+                    query_embedding = query_complaint.call_gigachat_embeddings()
+                    
+                    # Filter complaints with embeddings
+                    complaints_with_embeddings = complaints.exclude(embedding=None)
+                    
+                    # Calculate similarities and get top results
+                    similar_complaints = []
+                    
+                    for complaint in complaints_with_embeddings:
+                        if complaint.embedding is not None:
+                            # Calculate cosine similarity
+                            similarity = cosine_similarity(
+                                [query_embedding], 
+                                [complaint.embedding]
+                            )[0][0]
+                            
+                            similar_complaints.append({
+                                'complaint': complaint,
+                                'similarity': similarity
+                            })
+                    
+                    # Sort by similarity (highest first)
+                    similar_complaints.sort(key=lambda x: x['similarity'], reverse=True)
+                    
+                    # Get top results (limit to 5)
+                    top_results = similar_complaints[:5]
+                    
+                    # Create results with similarity score and sorted by similarity
+                    results = [
+                        {
+                            'id': item['complaint'].id,
+                            'email': item['complaint'].email,
+                            'name': item['complaint'].name,
+                            'text': item['complaint'].text,
+                            'x': item['complaint'].x,
+                            'y': item['complaint'].y,
+                            'cluster': item['complaint'].cluster_id,
+                            'similarity': round(float(item['similarity']), 3)
+                        }
+                        for item in top_results
+                    ]
+                                        
+                except Exception as e:
+                    logger.error(f"Error during semantic search: {str(e)}")
+                    return JsonResponse({'error': f'Semantic search error: {str(e)}'}, status=500)
+            else:
+                return JsonResponse({'error': 'Invalid search type'}, status=400)
+            
+            # Return the search results
+            return JsonResponse({
+                'count': len(results),
+                'results': results
+            })
+            
+        except json.JSONDecodeError:
+            return JsonResponse({'error': 'Invalid JSON data'}, status=400)
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+    
+    return JsonResponse({'error': 'Only POST method is supported'}, status=405)

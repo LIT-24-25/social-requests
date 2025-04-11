@@ -1,10 +1,9 @@
 name: telegram message
 on:
-  push:
+  pull_request:
     branches:
       - main
 jobs:
-
   build:
     name: Build
     runs-on: ubuntu-latest
@@ -16,9 +15,9 @@ jobs:
           token: ${{ secrets.TELEGRAM_TOKEN }}
           message: |
             @UPLAPPU @Aletavrus @Maksypya
-            ${{ github.actor }} created commit:
-            Commit message: ${{ github.event.commits[0].message }}
+            ${{ github.actor }} opened a pull request:
+            ${{ github.event.pull_request.title }}
             
             Repository: ${{ github.repository }}
             
-            See changes: https://github.com/${{ github.repository }}/commit/${{github.sha}}
+            See PR: ${{ github.event.pull_request.html_url }}

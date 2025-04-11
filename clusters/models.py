@@ -13,7 +13,8 @@ class Cluster(models.Model):
         Project,
         null=False,
         default=1,
-        on_delete=models.PROTECT)
+        on_delete=models.SET_DEFAULT)
+    size = models.IntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -25,7 +26,7 @@ class Cluster(models.Model):
             complaints = Complaint.objects.filter(cluster=self)
             if not complaints.exists():
                 return "Нет жалоб для анализа"
-            amount = random.randint(10, 30)
+            amount = random.randint(10, 20)
             complaints_list = list(complaints)
             complaints_for_summary = random.sample(complaints_list, min(amount, len(complaints_list)))
             complaints_texts = [f"Жалоба {i + 1}: {c.text}" for i, c in enumerate(complaints_for_summary)]
@@ -45,11 +46,18 @@ class Cluster(models.Model):
 
                         {combined_text}
                         """
-
+                counter = 0
                 while len(name.split(' ')) > 5:
                     name = call_gigachat(prompt_title)
+                    counter+=1
+                    if counter > 10:
+                        break
+                counter = 0
                 while len(summary.split(' ')) > 25:
                     summary = call_gigachat(prompt_summary)
+                    counter+=1
+                    if counter > 10:
+                        break
                 return (name, summary)
 
             else:

@@ -7,6 +7,7 @@ from complaints.models import Complaint
 from clusters.models import Cluster
 from tqdm import tqdm
 import logging
+from collections import Counter
 
 logger = logging.getLogger(__name__)
 
@@ -43,11 +44,26 @@ class Command(BaseCommand):
             action='store_true',
             help='Show elbow method plot'
         )
+        parser.add_argument(
+            '--model',
+            type=str,
+            default='OpenRouter',
+            help='Model to use for generating cluster summaries (OpenRouter or GigaChat)'
+        )
+        parser.add_argument(
+            '--show-sizes',
+            action='store_true',
+            help='Show detailed cluster size information during processing'
+        )
 
     def handle(self, *args, **options):
         logging.basicConfig(level=logging.INFO)
         logger.info("Starting K-Means clustering process...")
         batch_size = options['batch_size']
+        
+        # Установка значения по умолчанию для show_sizes, если не указано
+        if 'show_sizes' not in options:
+            options['show_sizes'] = False
 
         # Получение данных
         complaints = Complaint.objects.exclude(embedding__isnull=True)
@@ -120,6 +136,7 @@ class Command(BaseCommand):
 
         # Создание кластеров в БД
         clusters = {}
+        logger.info("Creating clusters")
         for label in unique_labels:
             cluster, created = Cluster.objects.update_or_create(
                 name=f"KMeans_Cluster_{label}",
@@ -137,5 +154,67 @@ class Command(BaseCommand):
                 complaint.cluster = clusters[label]
 
             Complaint.objects.bulk_update(batch, ['cluster'])
+            
+        # Подсчет размера кластеров
+        logger.info("Counting cluster sizes...")
+        cluster_sizes = Counter(labels)
+        for label, size in cluster_sizes.items():
+            if label in clusters:
+                clusters[label].size = size
+                if options['show_sizes']:
+                    logger.info(f"Cluster {label} size: {size}")
+        
+        # Сохранение обновленных размеров кластеров
+        for cluster in clusters.values():
+            cluster.save()
+            
+        # Генерация имени и описания для каждого кластера
+        logger.info("Generating cluster summaries...")
+        for label, cluster in clusters.items():
+            try:
+                # Получаем модель из опций командной строки
+                model = options['model']
+                response = cluster.generate_summary(model)
+                
+                # Обработка результата - метод может вернуть кортеж (имя, описание) или только описание
+                if isinstance(response, tuple):
+                    name, summary = response[0], response[1]
+                    cluster.name = name 
+                    cluster.summary = summary
+                    if len(response) > 2:
+                        cluster.model = response[2]
+                else:
+                    raise ValueError(f"Invalid response from generate_summary: {response}")
+                
+                cluster.save()
+                
+                logger.info(f"Generated summary for cluster {label}: {cluster.name} (size: {cluster.size})")
+            except Exception as e:
+                logger.warning(f"Failed to generate summary for cluster {label}: {str(e)}")
+                # Используем значения по умолчанию в случае ошибки
+                cluster.name = f"KMeans_Cluster_{label}"
+                cluster.summary = f"K-Means cluster {label} (auto-generated)"
+                cluster.save()
 
+        # Вывод статистики по кластерам
+        logger.info("Clustering statistics:")
+        
+        # Проверка соответствия размеров кластеров с данными в БД
+        if options['show_sizes']:
+            logger.info("Verifying cluster sizes with database...")
+            for label, cluster in clusters.items():
+                db_count = Complaint.objects.filter(cluster=cluster).count()
+                if db_count != cluster.size:
+                    logger.warning(f"Cluster {label} size mismatch: stored={cluster.size}, actual={db_count}")
+                    # Обновляем размер кластера, если есть расхождение
+                    cluster.size = db_count
+                    cluster.save()
+        
+        # Расчет итоговой статистики
+        total_assigned = sum(cluster.size for cluster in clusters.values())
+        for label, cluster in sorted(clusters.items()):
+            percentage = (cluster.size / total_assigned * 100) if total_assigned > 0 else 0
+            logger.info(f"Cluster {label} ({cluster.name}): {cluster.size} complaints ({percentage:.1f}%)")
+        
+        logger.info(f"Total complaints assigned to clusters: {total_assigned}")
         logger.info("Clustering completed successfully!")
