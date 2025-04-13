@@ -125,12 +125,9 @@ def create_complaint(request, project_id=None):
 
 def visual_view(request, project_id):
     logger.info(f"visual_view called with project_id={project_id}")
-    
-    # No longer fetching clusters here
-    # Instead, the frontend will fetch them via API
-    
+
     context = {
-        'project_id': project_id,  # Only pass project_id
+        'project_id': project_id,
     }
     
     logger.info(f"visual_view: Rendering template without clusters (will be loaded via API)")
@@ -188,8 +185,8 @@ class CreateClusterWithComplaints(APIView):
             status=status.HTTP_201_CREATED
         )
 
-def apply_tsne(perplexity):
-    call_command('applying_T-sne', perplexity=perplexity)
+def apply_tsne(perplexity, project_id):
+    call_command('applying_T-sne', perplexity=perplexity, project_id=project_id)
     return HttpResponse('')
 
 # API для вызова apply_tsne
@@ -201,10 +198,13 @@ def apply_tsne_api(request, project_id):
             perplexity = data.get('perplexity')
             if perplexity is None:
                 return JsonResponse({"error": "Параметр perplexity отсутствует"}, status=400)
-            # Вызываем функцию apply_tsne
-            apply_tsne(perplexity)
 
-            return JsonResponse({"message": "Функция apply_tsne вызвана успешно"})
+            project = get_object_or_404(Project, id=project_id)
+                
+            # Вызываем функцию apply_tsne с id проекта
+            apply_tsne(perplexity, project_id)
+
+            return JsonResponse({"message": f"Функция apply_tsne вызвана успешно для проекта {project_id}"})
         except json.JSONDecodeError:
             return JsonResponse({"error": "Неверный формат JSON"}, status=400)
     else:
