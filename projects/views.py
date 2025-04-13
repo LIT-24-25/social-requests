@@ -1,23 +1,12 @@
+from django.shortcuts import render
 from rest_framework import generics
-from .serializers import ProjectSerializer
 from .models import Project
+from .serializers import ProjectSerializer
 
 class ProjectListCreate(generics.ListCreateAPIView):
+    queryset = Project.objects.all()
     serializer_class = ProjectSerializer
 
-    def get_queryset(self):
-        project_id = self.kwargs.get('project_id')
-
-        if project_id:
-            queryset = Project.objects.filter(project_id=project_id)
-            return queryset
-
-        queryset = Project.objects.all()
-        return queryset
-
-    def get_serializer_context(self):
-        context = super().get_serializer_context()
-        context.update({'view': self})
-        return context
-
-
+def projects_list_view(request):
+    # Simply render the template, frontend will fetch data from API
+    return render(request, 'projects_list.html')
