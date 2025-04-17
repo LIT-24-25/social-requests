@@ -185,10 +185,6 @@ class CreateClusterWithComplaints(APIView):
             status=status.HTTP_201_CREATED
         )
 
-def apply_tsne(perplexity, project_id):
-    call_command('applying_T-sne', perplexity=perplexity, project_id=project_id)
-    return HttpResponse('')
-
 # API для вызова apply_tsne
 @csrf_exempt
 def apply_tsne_api(request, project_id):
@@ -199,12 +195,22 @@ def apply_tsne_api(request, project_id):
             if perplexity is None:
                 return JsonResponse({"error": "Параметр perplexity отсутствует"}, status=400)
 
-            project = get_object_or_404(Project, id=project_id)
-                
-            # Вызываем функцию apply_tsne с id проекта
-            apply_tsne(perplexity, project_id)
+            call_command('applying_T-sne', perplexity=perplexity, project_id=project_id)
 
             return JsonResponse({"message": f"Функция apply_tsne вызвана успешно для проекта {project_id}"})
+        except json.JSONDecodeError:
+            return JsonResponse({"error": "Неверный формат JSON"}, status=400)
+    else:
+        return JsonResponse({"error": "Метод не разрешен"}, status=405)
+
+@csrf_exempt
+def clusterise(request, project_id):
+    if request.method == 'POST':
+        try:
+
+            call_command('clusterising', project_id=project_id)
+
+            return JsonResponse({"message": f"Функция clusterising вызвана успешно для проекта {project_id}"})
         except json.JSONDecodeError:
             return JsonResponse({"error": "Неверный формат JSON"}, status=400)
     else:
@@ -235,7 +241,7 @@ def get_cluster_details(request, cluster_id, project_id=None):
         return JsonResponse({'error': str(e)}, status=500)
 
 @csrf_exempt
-def regenerate_summary(request, project_id=None):
+def regenerate_summary(request, project_id):
     if request.method == 'POST':
         try:
             data = json.loads(request.body)

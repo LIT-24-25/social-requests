@@ -22,12 +22,12 @@
         
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Inter', sans-serif; background-color: var(--bg-color); color: var(--text-color); line-height: 1.5; padding: 20px; }
-        h2 { font-weight: 600; font-size: 1.5rem; margin-bottom: 16px; color: #111827; }
+        h2 { font-weight: 600; font-size: 1.5rem; margin-bottom: 12px; color: #111827; }
         
         #app { display: flex; flex-direction: row; gap: 24px; max-width: 1600px; margin: 0 auto; }
         #canvas { border-radius: var(--radius); background-color: var(--panel-bg); box-shadow: var(--shadow); border: none; max-height: 650px; width: 800px; height: 650px; }
         
-        .panel { background-color: var(--panel-bg); border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow); }
+        .panel { background-color: var(--panel-bg); border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow); }
         .clusters-panel { width: 320px; flex-shrink: 0; max-height: 650px; overflow-y: auto; }
         .right-panel { 
             width: 400px; 
@@ -45,7 +45,7 @@
             margin-bottom: 10px; /* Add some space before the complaint detail */
             display: flex;
             flex-direction: column;
-            gap: 24px; /* Restore the gap between control elements */
+            gap: 16px; /* Reduced from 24px to 16px */
         }
         
         .right-panel .complaint-detail {
@@ -137,18 +137,18 @@
             margin-top: 4px;
         }
         
-        .controls { display: flex; flex-direction: column; gap: 20px; }
-        .buttons { display: flex; flex-direction: column; gap: 12px; }
+        .controls { display: flex; flex-direction: column; gap: 16px; }
+        .buttons { display: flex; flex-direction: column; gap: 8px; }
         
-        button { padding: 12px 16px; font-size: 0.95rem; cursor: pointer; border: none; background-color: var(--primary-color); color: white; 
+        button { padding: 10px 16px; font-size: 0.95rem; cursor: pointer; border: none; background-color: var(--primary-color); color: white; 
             border-radius: var(--radius); font-weight: 500; transition: background-color 0.2s ease; }
         button:hover { background-color: var(--secondary-color); }
         
         .text { display: flex; flex-direction: column; background-color: var(--bg-color); padding: 16px; border-radius: var(--radius); border: 1px solid var(--border-color); }
         .text div { margin-top: 8px; font-size: 0.95rem; }
         
-        .control-group { display: flex; flex-direction: column; gap: 12px; }
-        .control-group label { font-size: 0.95rem; }
+        .control-group { display: flex; flex-direction: column; gap: 8px; }
+        .control-group label { font-size: 0.95rem; margin-bottom: 4px; }
         
         input[type="range"] { width: 100%; accent-color: var(--primary-color); height: 6px; border-radius: 6px; }
         
@@ -245,7 +245,7 @@
             height: 2px;
             min-height: 2px;
             background: linear-gradient(to right, rgba(229, 231, 235, 0.5), rgba(67, 97, 238, 0.3), rgba(229, 231, 235, 0.5));
-            margin: 15px 0;
+            margin: 10px 0; /* Reduced from 15px to 10px */
             border: none;
             border-radius: 2px;
             display: block;
@@ -314,38 +314,37 @@
 
         <div class="right-panel panel">
             <div class="controls">
-                <div class="control-group">
-                    <label for="searchType" style="font-weight: 500; margin-bottom: 8px;">Поиск записи</label>
-                    <select id="searchType" class="form-select" v-model="searchType" style="margin-bottom: 10px;">
-                        <option value="email">Email</option>
-                        <option value="text">Текст</option>
-                        <option value="semantic">Смысл</option>
-                    </select>
-                    <div style="position: relative;">
-                        <input type="text" v-model="searchQuery" placeholder="Введите текст для поиска" class="form-select" @keyup.enter="performSearch">
+                <div class="youtube-import">
+                    <h4 style="margin-top: 0px; margin-bottom: 6px; font-weight: 600;">Добавить данные</h4>
+                    <div style="display: flex; gap: 6px;">
+                        <input type="text" v-model="youtubeUrl" placeholder="Insert YouTube link" class="form-select" style="flex: 1;" :disabled="isProcessingYouTube">
+                        <button @click="addYouTubeData" :disabled="isProcessingYouTube || !youtubeUrl" style="min-width: 90px;">
+                            [[ isProcessingYouTube ? 'Processing...' : 'Import' ]]
+                        </button>
                     </div>
-                    <button @click="performSearch" style="margin-top: 0px;" :disabled="isSearching">
-                        [[ isSearching ? 'Searching...' : 'Search' ]]
-                    </button>
-                    <div v-if="searchResults.length > 0" style="margin-top: 8px; font-size: 0.9rem; color: #4b5563;">
-                        Found [[ searchResults.length ]] results
+                    <div v-if="isProcessingYouTube" style="margin-top: 8px; color: #4361ee; font-size: 0.9rem;">
+                        Importing YouTube comments... [[ currentStatusMessage ]]
+                    </div>
+                    <div v-if="youtubeError" class="error-message" style="margin-top: 10px; margin-bottom: 0; font-size: 0.9rem; display: flex; justify-content: space-between; align-items: center; width: 400px;">
+                        <span>[[ youtubeError ]]</span>
+                        <button @click="clearYoutubeError" style="background: none; color: #dc2626; font-weight: bold; padding: 0 5px; font-size: 1rem; min-width: auto;">×</button>
                     </div>
                 </div>
-
+                
                 <hr class="section-divider">
                 
-                <div class="control-group" style="margin-top: 15px;">
-                    <label for="perplexitySlider" style="font-weight: 500; margin-bottom: 8px; display: flex; justify-content: space-between;">
+                <div class="control-group" style="margin-top: 10px;">
+                    <label for="perplexitySlider" style="font-weight: 500; margin-bottom: 4px; display: flex; justify-content: space-between;">
                         <span>Perplexity: [[ step ]]</span>
                     </label>
                     <input type="range" id="perplexitySlider" min="1" max="50" step="1" v-model="step" class="form-range">
-                    <button @click="applyTsne" style="margin-top: 10px;">Применить T-SNE</button>
+                    <button @click="applyTsne" style="margin-top: 6px;">Применить T-SNE</button>
                 </div>
                 
                 <hr class="section-divider">
                                 
                 <div class="control-group">
-                    <h3 style="font-weight: 800; margin-top: 0;">Создать кластер</h3>
+                    <h3 style="font-weight: 800; margin-top: 0; margin-bottom: 6px;">Создать кластер</h3>
                     <label for="modelSelect">Выберите модель:</label>
                     <select id="modelSelect" class="form-select" v-model="model">
                         <option v-for="option in availableModels" :key="option" :value="option">[[ option ]]</option>
@@ -358,20 +357,30 @@
                 
                 <hr class="section-divider">
                 
-                <div class="youtube-import">
-                    <h4 style="margin-top: 0px; margin-bottom: 10px; font-weight: 600;">Добавить данные</h4>
-                    <div style="display: flex; gap: 8px;">
-                        <input type="text" v-model="youtubeUrl" placeholder="Insert YouTube link" class="form-select" style="flex: 1;" :disabled="isProcessingYouTube">
-                        <button @click="addYouTubeData" :disabled="isProcessingYouTube || !youtubeUrl" style="min-width: 90px;">
-                            [[ isProcessingYouTube ? 'Processing...' : 'Import' ]]
-                        </button>
+                <div class="control-group">
+                    <h3 style="font-weight: 800; margin-bottom: 6px;">Автоматическая кластеризация</h3>
+                    <button @click="runAutoClustering" :disabled="isClusterising">
+                        [[ isClusterising ? 'Выполнение...' : 'Запустить кластеризацию' ]]
+                    </button>
+                </div>
+                
+                <hr class="section-divider">
+                
+                <div class="control-group">
+                    <label for="searchType" style="font-weight: 500; margin-bottom: 4px;">Поиск записи</label>
+                    <select id="searchType" class="form-select" v-model="searchType" style="margin-bottom: 6px;">
+                        <option value="email">Email</option>
+                        <option value="text">Текст</option>
+                        <option value="semantic">Смысл</option>
+                    </select>
+                    <div style="position: relative;">
+                        <input type="text" v-model="searchQuery" placeholder="Введите текст для поиска" class="form-select" @keyup.enter="performSearch">
                     </div>
-                    <div v-if="isProcessingYouTube" style="margin-top: 8px; color: #4361ee; font-size: 0.9rem;">
-                        Importing YouTube comments... [[ currentStatusMessage ]]
-                    </div>
-                    <div v-if="youtubeError" class="error-message" style="margin-top: 10px; margin-bottom: 0; font-size: 0.9rem; display: flex; justify-content: space-between; align-items: center; width: 400px;">
-                        <span>[[ youtubeError ]]</span>
-                        <button @click="clearYoutubeError" style="background: none; color: #dc2626; font-weight: bold; padding: 0 5px; font-size: 1rem; min-width: auto;">×</button>
+                    <button @click="performSearch" style="margin-top: 6px;" :disabled="isSearching">
+                        [[ isSearching ? 'Searching...' : 'Search' ]]
+                    </button>
+                    <div v-if="searchResults.length > 0" style="margin-top: 6px; font-size: 0.9rem; color: #4b5563;">
+                        Found [[ searchResults.length ]] results
                     </div>
                 </div>
             </div>
@@ -478,7 +487,8 @@
                     searchType: "email",
                     searchQuery: "",
                     isSearching: false,
-                    searchResults: []
+                    searchResults: [],
+                    isClusterising: false
                 }
             },
             async mounted() {
@@ -1230,6 +1240,42 @@
                 },
                 closeComplaintDetail() {
                     this.currentPoint = {};
+                },
+                
+                async runAutoClustering() {
+                    try {
+                        // Set processing state
+                        this.isClusterising = true;
+                        
+                        // Make API call to the clusterising endpoint
+                        const response = await fetch(`/project/{{ project_id }}/api/clusterising/`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({}) // Empty object, as the API doesn't require additional parameters
+                        });
+                        
+                        if (response.ok) {
+                            // Show success message to user
+                            alert("Автоматическая кластеризация запущена успешно!");
+                            
+                            // Refresh clusters after a delay to allow processing
+                            setTimeout(async () => {
+                                await this.updateClustersPanel();
+                                await this.fetchPoints();
+                                alert("Кластеризация завершена. Данные обновлены.");
+                            }, 5000);
+                        } else {
+                            const errorData = await response.json();
+                            throw new Error(errorData.error || "Failed to start automatic clustering");
+                        }
+                    } catch (error) {
+                        console.error('Clustering error:', error);
+                        alert(`Ошибка при запуске кластеризации: ${error.message}`);
+                    } finally {
+                        // Reset processing state
+                        this.isClusterising = false;
+                    }
+                    this.updateClustersPanel(); 
                 }
             }
         }).mount('#app');

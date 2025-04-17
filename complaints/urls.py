@@ -2,7 +2,7 @@ from django.urls import path
 from .views import (
     ComplaintListCreate, ComplaintDetail, CreateClusterWithComplaints, 
     apply_tsne_api, get_cluster_details, regenerate_summary,
-    add_youtube_api, task_status_api, search_complaints
+    add_youtube_api, task_status_api, search_complaints, clusterise
 )
 
 urlpatterns = [
@@ -19,4 +19,7 @@ urlpatterns = [
     
     # Search API endpoint
     path('search/', search_complaints, name='search-complaints'),
+    
+    # Clusterising API endpoint
+    path('clusterising/', clusterise, name='clusterising-api'),
 ]
