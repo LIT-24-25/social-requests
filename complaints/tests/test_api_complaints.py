@@ -8,8 +8,8 @@ from projects.models import Project
 
 class ComplaintsAPITests(TestCase):
     def setUp(self):
-        # Создаем тестовый проект (без поля name)
-        self.project = Project.objects.create(id=1)
+        # Создаем тестовый проект
+        self.project = Project.objects.create(name="Test Project")
 
         # Создаем тестовые жалобы
         self.complaint1 = Complaint.objects.create(
@@ -31,8 +31,8 @@ class ComplaintsAPITests(TestCase):
 
     def test_get_all_complaints(self):
         """Тест получения списка всех жалоб через API"""
-        # Используем URL 'complaints/' из вашего urls.py с project_id
-        url = reverse('complaint-list-create', kwargs={'project_id': self.project.id})
+        # Используем URL 'complaints/' из вашего urls.py
+        url = reverse('complaint-list-create')
         response = self.client.get(url)
 
         # Проверяем успешный статус ответа
@@ -43,7 +43,7 @@ class ComplaintsAPITests(TestCase):
 
     def test_create_complaint(self):
         """Тест создания новой жалобы через API"""
-        url = reverse('complaint-list-create', kwargs={'project_id': self.project.id})
+        url = reverse('complaint-list-create')
         data = {
             'email': 'new@example.com',
             'name': 'New API Complaint',

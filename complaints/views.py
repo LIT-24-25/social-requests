@@ -12,17 +12,11 @@ from django.http import JsonResponse
 import json
 from django.views.decorators.csrf import csrf_exempt
 from django.core.management import call_command
-from django.http import HttpResponse
-from django.core.serializers import serialize
-from clusters.views import ClusterListCreate
 import logging
 import threading
 import uuid
-from django.core.cache import cache
-import re
 from urllib.parse import urlparse
-from projects.models import Project  # Added for the new create_complaint method
-import numpy as np
+from projects.models import Project
 from sklearn.metrics.pairwise import cosine_similarity
 
 logger = logging.getLogger(__name__)
