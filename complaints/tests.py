@@ -34,11 +34,7 @@ class ComplaintsAPITests(TestCase):
         # Используем URL 'complaints/' из вашего urls.py с project_id
         url = reverse('complaint-list-create', kwargs={'project_id': self.project.id})
         response = self.client.get(url)
-
-        # Проверяем успешный статус ответа
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-
-        # Проверяем, что получили обе созданные жалобы
         self.assertEqual(len(response.data), 2)
 
     def test_create_complaint(self):
