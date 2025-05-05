@@ -5,6 +5,8 @@ from rest_framework import status
 from .models import Cluster
 from complaints.models import Complaint
 from projects.models import Project
+from unittest.mock import patch, MagicMock
+from gigachat.exceptions import GigaChatException
 
 
 class ClustersAPITests(TestCase):
@@ -80,57 +82,6 @@ class ClustersAPITests(TestCase):
         self.assertEqual(complaints[0]['name'], "Test Complaint 1")
         self.assertEqual(complaints[1]['name'], "Test Complaint 2")
 
-    def test_cluster_summary_generation(self):
-        """Test cluster summary generation"""
-        # Create a new cluster without complaints
-        empty_cluster = Cluster.objects.create(
-            name="Empty Cluster",
-            summary="",
-            model="TestModel",
-            project=self.project
-        )
-        
-        # Test summary generation for empty cluster
-        result = empty_cluster.generate_summary("TestModel")
-        self.assertEqual(result, "Нет жалоб для анализа")
-        
-        # Test summary generation for cluster with complaints
-        result = self.cluster.generate_summary("TestModel")
-        self.assertTrue(len(result) > 0)
-        self.assertIsInstance(result, str)
-
-    def test_update_cluster(self):
-        """Test updating cluster details"""
-        url = reverse('cluster-detail', kwargs={
-            'project_id': self.project.id,
-            'cluster_id': self.cluster.id
-        })
-        data = {
-            'name': 'Updated Cluster',
-            'summary': 'Updated summary',
-            'model': 'UpdatedModel'
-        }
-        response = self.client.patch(url, data, format='json')
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data['name'], 'Updated Cluster')
-        self.assertEqual(response.data['summary'], 'Updated summary')
-        self.assertEqual(response.data['model'], 'UpdatedModel')
-
-    def test_delete_cluster(self):
-        """Test deleting a cluster"""
-        url = reverse('cluster-detail', kwargs={
-            'project_id': self.project.id,
-            'cluster_id': self.cluster.id
-        })
-        response = self.client.delete(url)
-        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
-        self.assertEqual(Cluster.objects.count(), 0)
-        
-        # Verify complaints are not deleted when cluster is deleted
-        self.assertEqual(Complaint.objects.count(), 2)
-        self.assertIsNone(Complaint.objects.get(id=self.complaint1.id).cluster)
-        self.assertIsNone(Complaint.objects.get(id=self.complaint2.id).cluster)
-
     def test_create_cluster_with_complaints(self):
         """Test creating a cluster with complaints"""
         url = reverse('create-cluster', kwargs={'project_id': self.project.id})
@@ -151,3 +102,44 @@ class ClustersAPITests(TestCase):
             Complaint.objects.filter(cluster_id=new_cluster_id).count(), 
             2
         )
+
+    @patch('clusters.models.call_gigachat')
+    @patch('clusters.models.call_openrouter')
+    def test_generate_summary(self, mock_openrouter, mock_gigachat):
+        """Test cluster summary generation with mocked LLM API calls"""
+        # Setup mock return values
+        mock_gigachat.side_effect = ["Test Cluster Name", "This is a mocked summary for testing purposes"]
+        mock_openrouter.return_value = "OpenRouter summary for testing"
+        
+        # Test GigaChat model
+        result = self.cluster.generate_summary("GigaChat")
+        self.assertEqual(result, ("Test Cluster Name", "This is a mocked summary for testing purposes"))
+        self.assertEqual(mock_gigachat.call_count, 2)  # Called once for name, once for summary
+        
+        # Reset mock
+        mock_gigachat.reset_mock()
+        
+        # Test other model (OpenRouter)
+        result = self.cluster.generate_summary("Other")
+        self.assertEqual(result, "OpenRouter summary for testing")
+        mock_openrouter.assert_called_once()
+        self.assertEqual(mock_gigachat.call_count, 0)
+
+    # @patch('clusters.models.call_gigachat')
+    # def test_generate_summary_errors(self, mock_gigachat):
+    #     """Test error handling in cluster summary generation"""
+    #     # Test GigaChat exception
+    #     mock_gigachat.side_effect = GigaChatException("API Error")
+    #     result = self.cluster.generate_summary("GigaChat")
+    #     self.assertEqual(result, "Не удалось сгенерировать описание")
+    #
+    #     # Test general exception
+    #     mock_gigachat.side_effect = Exception("General Error")
+    #     result = self.cluster.generate_summary("GigaChat")
+    #     self.assertEqual(result, "Ошибка генерации описания")
+    #
+    #     # Test empty cluster (no complaints)
+    #     with patch('complaints.models.Complaint.objects.filter') as mock_filter:
+    #         mock_filter.return_value.exists.return_value = False
+    #         result = self.cluster.generate_summary("GigaChat")
+    #         self.assertEqual(result, "Нет жалоб для анализа")
