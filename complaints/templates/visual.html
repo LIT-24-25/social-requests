@@ -40,12 +40,12 @@
         
         .right-panel .controls {
             flex: 1;
-            overflow-y: auto; /* Enable scrolling for the controls */
-            padding-right: 10px; /* Add padding for scrollbar */
-            margin-bottom: 10px; /* Add some space before the complaint detail */
+            overflow-y: auto;
+            padding-right: 10px;
+            margin-bottom: 10px;
             display: flex;
             flex-direction: column;
-            gap: 24px; /* Restore the gap between control elements */
+            gap: 16px;
         }
         
         .right-panel .complaint-detail {
@@ -138,7 +138,7 @@
         }
         
         .controls { display: flex; flex-direction: column; gap: 20px; }
-        .buttons { display: flex; flex-direction: column; gap: 12px; }
+        .buttons { display: flex; flex-direction: column; gap: 8px; }
         
         button { padding: 12px 16px; font-size: 0.95rem; cursor: pointer; border: none; background-color: var(--primary-color); color: white; 
             border-radius: var(--radius); font-weight: 500; transition: background-color 0.2s ease; }
@@ -147,7 +147,11 @@
         .text { display: flex; flex-direction: column; background-color: var(--bg-color); padding: 16px; border-radius: var(--radius); border: 1px solid var(--border-color); }
         .text div { margin-top: 8px; font-size: 0.95rem; }
         
-        .control-group { display: flex; flex-direction: column; gap: 12px; }
+        .control-group { 
+            display: flex; 
+            flex-direction: column; 
+            gap: 8px; 
+        }
         .control-group label { font-size: 0.95rem; }
         
         input[type="range"] { width: 100%; accent-color: var(--primary-color); height: 6px; border-radius: 6px; }
@@ -242,12 +246,12 @@
         
         /* Separator line style */
         .section-divider {
-            height: 2px;
-            min-height: 2px;
+            height: 1px;
+            min-height: 1px;
             background: linear-gradient(to right, rgba(229, 231, 235, 0.5), rgba(67, 97, 238, 0.3), rgba(229, 231, 235, 0.5));
-            margin: 15px 0;
+            margin: 10px 0;
             border: none;
-            border-radius: 2px;
+            border-radius: 1px;
             display: block;
             clear: both;
         }

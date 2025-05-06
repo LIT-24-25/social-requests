@@ -70,6 +70,7 @@
         .submit-button {
             background-color: #007bff;
             color: white;
+            width: 100%;
         }
 
         .submit-button:hover {
@@ -108,7 +109,7 @@
     {% csrf_token %}
     
     <div id="app" class="form-container">
-        <h1>Создать новую жалобу</h1>
+        <h1>Создать новое обращение</h1>
         
         <form @submit.prevent="submitComplaint">
             <div class="form-group">
@@ -124,19 +125,18 @@
             </div>
 
             <div class="form-group">
-                <label for="complaint_text">Жалоба:</label>
+                <label for="complaint_text">Текст обращения:</label>
                 <textarea id="complaint_text" v-model="formData.text" 
                          rows="5" :class="{ error: !formData.text && !isSubmitting }" required></textarea>
             </div>
 
             <div class="button-group">
-                <button type="submit" class="submit-button">Отправить жалобу</button>
-                <button type="button" class="visual-button" @click="goToVisual">Визуализация</button>
+                <button type="submit" class="submit-button">Отправить обращение</button>
             </div>
         </form>
 
         <div v-if="showSuccess" class="success-message">
-            Жалоба успешно отправлена!
+            Обращение успешно отправлено!
         </div>
     </div>
 
@@ -178,11 +178,16 @@
                         }
                     } catch (error) {
                         console.error('Ошибка при отправке:', error);
-                        alert(error.response?.data?.message || 'Произошла ошибка при отправке жалобы. Пожалуйста, попробуйте снова.');
+                        alert(error.response?.data?.message || 'Произошла ошибка при отправке обращения. Пожалуйста, попробуйте снова.');
                     }
                 },
                 goToVisual() {
-                    window.location.href = '/visual';
+                    // Extract project_id from the current URL
+                    const urlParts = window.location.pathname.split('/');
+                    const projectIdIndex = urlParts.indexOf('project') + 1;
+                    const projectId = projectIdIndex < urlParts.length ? urlParts[projectIdIndex] : '';
+                    
+                    window.location.href = `/project/${projectId}/visual`;
                 }
             }
         }).mount('#app');

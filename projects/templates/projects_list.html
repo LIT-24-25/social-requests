@@ -25,6 +25,25 @@
             text-align: center;
             margin-bottom: 30px;
         }
+        .header-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .create-btn {
+            background-color: #27ae60;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.2s;
+        }
+        .create-btn:hover {
+            background-color: #219653;
+        }
         .projects-list {
             list-style-type: none;
             padding: 0;
@@ -82,7 +101,10 @@
 </head>
 <body>
     <div class="container">
-        <h1>Projects List</h1>
+        <div class="header-container">
+            <h1>Projects List</h1>
+            <button id="create-project-btn" class="create-btn">Create New Project</button>
+        </div>
         
         <div id="projects-container">
             <div class="loading">Loading projects...</div>
@@ -92,6 +114,51 @@
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const projectsContainer = document.getElementById('projects-container');
+            const createProjectBtn = document.getElementById('create-project-btn');
+            
+            // Add event listener for the create project button
+            createProjectBtn.addEventListener('click', function() {
+                // Get CSRF token from cookies
+                const csrftoken = getCookie('csrftoken');
+                
+                fetch('/api/projects/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrftoken
+                    },
+                    body: JSON.stringify({})
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Failed to create project');
+                    }
+                    return response.json();
+                })
+                .then(newProject => {
+                    // Redirect to the new project's visual page
+                    window.location.href = `/project/${newProject.id}/visual/`;
+                })
+                .catch(error => {
+                    alert('Error creating project: ' + error.message);
+                });
+            });
+            
+            // Function to get CSRF token from cookies
+            function getCookie(name) {
+                let cookieValue = null;
+                if (document.cookie && document.cookie !== '') {
+                    const cookies = document.cookie.split(';');
+                    for (let i = 0; i < cookies.length; i++) {
+                        const cookie = cookies[i].trim();
+                        if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                            cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                            break;
+                        }
+                    }
+                }
+                return cookieValue;
+            }
             
             fetch('/api/projects/')
                 .then(response => {
