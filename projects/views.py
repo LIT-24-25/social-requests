@@ -8,5 +8,4 @@ class ProjectListCreate(generics.ListCreateAPIView):
     serializer_class = ProjectSerializer
 
 def projects_list_view(request):
-    # Simply render the template, frontend will fetch data from API
     return render(request, 'projects_list.html')
