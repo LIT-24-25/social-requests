@@ -15,7 +15,7 @@ def calculate_tsne(embeddings, perplexity=500):
         perplexity=perplexity,
         max_iter=1000,
         random_state=42,
-        verbose=0,
+        verbose=1,
         learning_rate=100
     )
     return tsne.fit_transform(np.array(embeddings))
