@@ -16,7 +16,7 @@ jobs:
           message: |
             @UPLAPPU @Aletavrus @Maksypya
             ${{ github.actor }} opened a pull request:
-            PR Title: ${{ github.event.pull_request.title }}
+            ${{ github.event.pull_request.title }}
             
             Repository: ${{ github.repository }}
             

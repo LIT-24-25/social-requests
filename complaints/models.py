@@ -20,14 +20,14 @@ class Complaint(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     cluster = models.ForeignKey(
         Cluster,
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
         null=True,
         default=None)
     project = models.ForeignKey(
         Project,
         null=False,
         default=1,
-        on_delete=models.PROTECT)
+        on_delete=models.SET_DEFAULT)
 
     def call_gigachat_embeddings(self, text=None, giga_client=None):
         try:
