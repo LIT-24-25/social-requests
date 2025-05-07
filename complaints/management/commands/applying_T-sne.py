@@ -15,7 +15,7 @@ def calculate_tsne(embeddings, perplexity=500):
         perplexity=perplexity,
         max_iter=1000,
         random_state=42,
-        verbose=0,
+        verbose=1,
         learning_rate=100
     )
     return tsne.fit_transform(np.array(embeddings))
@@ -37,20 +37,27 @@ class Command(BaseCommand):
             default=1000,
             help='Number of records to process at once'
         )
+        parser.add_argument(
+            '--project-id',
+            type=int,
+            required=True,
+            help='ID of the project to process complaints for'
+        )
 
     def handle(self, *args, **options):
         perplexity = options['perplexity']
         batch_size = options['batch_size']
+        project_id = options['project_id']
 
-        # Получаем только жалобы с эмбеддингами
-        queryset = Complaint.objects.exclude(embedding__isnull=True)
+        # Получаем только жалобы с эмбеддингами для указанного проекта
+        queryset = Complaint.objects.filter(project_id=project_id).exclude(embedding__isnull=True)
         total = queryset.count()
 
         if total == 0:
-            logger.warning("No complaints with embeddings found!")
+            logger.warning(f"No complaints with embeddings found for project ID {project_id}!")
             return
 
-        logger.info(f"Processing {total} complaints with t-SNE...")
+        logger.info(f"Processing {total} complaints with t-SNE for project ID {project_id}...")
 
         # Загружаем и фильтруем эмбеддинги
         valid_embeddings = []
@@ -66,10 +73,10 @@ class Command(BaseCommand):
                 logger.warning(f"Skipping complaint {complaint.id}: {str(e)}")
 
         if not valid_embeddings:
-            logger.error("No valid embeddings found!")
+            logger.error(f"No valid embeddings found for project ID {project_id}!")
             return
 
-        logger.info(f"Found {len(valid_embeddings)} valid embeddings")
+        logger.info(f"Found {len(valid_embeddings)} valid embeddings for project ID {project_id}")
 
         # Вычисляем t-SNE
         tsne_results = calculate_tsne(valid_embeddings, perplexity)
@@ -86,4 +93,4 @@ class Command(BaseCommand):
                 Complaint.objects.bulk_update(batch, ['x', 'y'])
                 pbar.update(len(batch))
         
-        logger.info("Successfully updated coordinates!")
+        logger.info(f"Successfully updated coordinates for project ID {project_id}!")

@@ -5,6 +5,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import silhouette_score
 from complaints.models import Complaint
 from clusters.models import Cluster
+from projects.models import Project
 from tqdm import tqdm
 import logging
 from collections import Counter
@@ -55,19 +56,40 @@ class Command(BaseCommand):
             action='store_true',
             help='Show detailed cluster size information during processing'
         )
+        parser.add_argument(
+            '--project-id',
+            type=int,
+            help='ID of the project to cluster complaints for'
+        )
 
     def handle(self, *args, **options):
         logging.basicConfig(level=logging.INFO)
         logger.info("Starting K-Means clustering process...")
         batch_size = options['batch_size']
+        project_id = options.get('project_id')
+        
+        # Получаем объект проекта, если project_id указан
+        project = None
+        if project_id:
+            try:
+                project = Project.objects.get(id=project_id)
+                logger.info(f"Clustering complaints for project ID: {project_id}")
+            except Project.DoesNotExist:
+                logger.error(f"Project with ID {project_id} does not exist!")
+                return
+        else:
+            logger.info("Clustering all complaints across all projects")
         
         # Установка значения по умолчанию для show_sizes, если не указано
         if 'show_sizes' not in options:
             options['show_sizes'] = False
 
-        # Получение данных
-        complaints = Complaint.objects.exclude(embedding__isnull=True)
-        total = complaints.count()
+        # Получение данных с фильтрацией по project, если указан
+        complaints_query = Complaint.objects.exclude(embedding__isnull=True)
+        if project:
+            complaints_query = complaints_query.filter(project=project)
+            
+        total = complaints_query.count()
 
         if total == 0:
             logger.error("No complaints with embeddings found!")
@@ -76,7 +98,7 @@ class Command(BaseCommand):
         # Подготовка эмбеддингов
         embeddings = []
         valid_complaints = []
-        for complaint in complaints.iterator():
+        for complaint in complaints_query.iterator():
             try:
                 if isinstance(complaint.embedding, list):
                     embedding = np.array(complaint.embedding)
@@ -134,13 +156,27 @@ class Command(BaseCommand):
         logger.info(f"Created {len(unique_labels)} clusters")
         logger.info(f"Silhouette Score: {silhouette_score(scaled_embeddings, labels):.2f}")
 
-        # Создание кластеров в БД
+        # Создание кластеров в БД с учетом project_id
         clusters = {}
         logger.info("Creating clusters")
         for label in unique_labels:
+            cluster_name = f"KMeans_Cluster_{label}"
+            cluster_defaults = {
+                'summary': f"K-Means cluster {label}",
+            }
+            
+            # Добавляем project в defaults, если project указан
+            if project:
+                cluster_defaults['project'] = project
+                
+            # Дополнительный фильтр для update_or_create при создании кластеров
+            filter_kwargs = {'name': cluster_name}
+            if project:
+                filter_kwargs['project'] = project
+                
             cluster, created = Cluster.objects.update_or_create(
-                name=f"KMeans_Cluster_{label}",
-                defaults={'summary': f"K-Means cluster {label}"}
+                **filter_kwargs,
+                defaults=cluster_defaults
             )
             clusters[label] = cluster
 
@@ -217,4 +253,5 @@ class Command(BaseCommand):
             logger.info(f"Cluster {label} ({cluster.name}): {cluster.size} complaints ({percentage:.1f}%)")
         
         logger.info(f"Total complaints assigned to clusters: {total_assigned}")
-        logger.info("Clustering completed successfully!")
+        project_info = f" for project ID: {project_id}" if project else ""
+        logger.info(f"Clustering completed successfully{project_info}!")
