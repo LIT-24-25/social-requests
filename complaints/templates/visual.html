@@ -255,6 +255,95 @@
             display: block;
             clear: both;
         }
+        
+        /* QR code dialog styles */
+        .qr-dialog-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        
+        .qr-dialog {
+            background-color: white;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            width: 400px;
+            max-width: 90%;
+            overflow: hidden;
+        }
+        
+        .qr-dialog-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 20px;
+            background-color: var(--primary-color);
+            color: white;
+        }
+        
+        .qr-dialog-header h3 {
+            margin: 0;
+            font-size: 1.1rem;
+        }
+        
+        .qr-dialog-content {
+            padding: 20px;
+        }
+        
+        .qr-code-container {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+        
+        .qr-code {
+            width: 200px;
+            height: 200px;
+        }
+        
+        .form-url-container {
+            margin-top: 15px;
+        }
+        
+        .form-url-label {
+            font-weight: 500;
+            margin-bottom: 8px;
+        }
+        
+        .form-url-row {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .form-url-input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius);
+            font-size: 0.9rem;
+        }
+        
+        .copy-btn {
+            padding: 0 15px;
+            background-color: var(--secondary-color);
+            color: white;
+            border: none;
+            border-radius: var(--radius);
+            cursor: pointer;
+            transition: background-color 0.2s;
+            min-width: 80px;
+        }
+        
+        .copy-btn:hover {
+            background-color: var(--primary-color);
+        }
     </style>
 </head>
 <body>
@@ -316,20 +405,26 @@
 
         <div class="right-panel panel">
             <div class="controls">
-                <div class="youtube-import">
-                    <h4 style="margin-top: 0px; margin-bottom: 10px; font-weight: 600;">Добавить данные</h4>
-                    <div style="display: flex; gap: 8px;">
-                        <input type="text" v-model="youtubeUrl" placeholder="Insert YouTube link" class="form-select" style="flex: 1;" :disabled="isProcessingYouTube">
-                        <button @click="addYouTubeData" :disabled="isProcessingYouTube || !youtubeUrl" style="min-width: 90px;">
-                            [[ isProcessingYouTube ? 'Processing...' : 'Import' ]]
-                        </button>
+                <div class="data-import">
+                    <div class="youtube-import">
+                        <h4 style="margin-top: 0px; margin-bottom: 10px; font-weight: 600;">Добавить данные</h4>
+                        <div style="display: flex; gap: 8px;">
+                            <input type="text" v-model="youtubeUrl" placeholder="Insert YouTube link" class="form-select" style="flex: 1;" :disabled="isProcessingYouTube">
+                            <button @click="addYouTubeData" :disabled="isProcessingYouTube || !youtubeUrl" style="min-width: 90px;">
+                                [[ isProcessingYouTube ? 'Processing...' : 'Import' ]]
+                            </button>
+                        </div>
+                        <div v-if="isProcessingYouTube" style="margin-top: 8px; color: #4361ee; font-size: 0.9rem;">
+                            Importing YouTube comments... [[ currentStatusMessage ]]
+                        </div>
+                        <div v-if="youtubeError" class="error-message" style="margin-top: 10px; margin-bottom: 0; font-size: 0.9rem; display: flex; justify-content: space-between; align-items: center; width: 400px;">
+                            <span>[[ youtubeError ]]</span>
+                            <button @click="clearYoutubeError" style="background: none; color: #dc2626; font-weight: bold; padding: 0 5px; font-size: 1rem; min-width: auto;">×</button>
+                        </div>
+                        <button @click="showFormQRDialog" style="margin-top: 12px; width: 100%;">Сгенерировать форму</button>
                     </div>
-                    <div v-if="isProcessingYouTube" style="margin-top: 8px; color: #4361ee; font-size: 0.9rem;">
-                        Importing YouTube comments... [[ currentStatusMessage ]]
-                    </div>
-                    <div v-if="youtubeError" class="error-message" style="margin-top: 10px; margin-bottom: 0; font-size: 0.9rem; display: flex; justify-content: space-between; align-items: center; width: 400px;">
-                        <span>[[ youtubeError ]]</span>
-                        <button @click="clearYoutubeError" style="background: none; color: #dc2626; font-weight: bold; padding: 0 5px; font-size: 1rem; min-width: auto;">×</button>
+                    <div class="form-import">
+                        
                     </div>
                 </div>
 
@@ -398,6 +493,31 @@
                     <div class="detail-fulltext">
                         <div class="detail-label">Text:</div>
                         <div class="detail-text">[[ currentPoint.info ]]</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- QR Code Dialog -->
+        <div v-if="showQRDialog" class="qr-dialog-overlay">
+            <div class="qr-dialog">
+                <div class="qr-dialog-header">
+                    <h3>QR Code для формы</h3>
+                    <button @click="closeQRDialog" class="close-btn" style="color: #374151;">✕</button>
+                </div>
+                <div class="qr-dialog-content">
+                    <div class="qr-code-container">
+                        <img :src="qrCodeUrl" alt="QR Code" class="qr-code">
+                    </div>
+                    <div class="form-url-container">
+                        <p class="form-url-label">URL формы:</p>
+                        <div class="form-url-row">
+                            <input type="text" readonly :value="formUrl" class="form-url-input">
+                            <button @click="copyFormUrl" class="copy-btn">
+                                <span v-if="!copied">Copy</span>
+                                <span v-else>Copied!</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -480,7 +600,11 @@
                     searchType: "email",
                     searchQuery: "",
                     isSearching: false,
-                    searchResults: []
+                    searchResults: [],
+                    showQRDialog: false,
+                    formUrl: "",
+                    qrCodeUrl: "",
+                    copied: false
                 }
             },
             async mounted() {
@@ -1232,6 +1356,27 @@
                 },
                 closeComplaintDetail() {
                     this.currentPoint = {};
+                },
+                showFormQRDialog() {
+                    const projectId = '{{ project_id }}';
+                    this.formUrl = `${window.location.origin}/project/${projectId}`;
+                    // Generate QR code URL using an API
+                    this.qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(this.formUrl)}`;
+                    this.showQRDialog = true;
+                    this.copied = false;
+                },
+                closeQRDialog() {
+                    this.showQRDialog = false;
+                },
+                copyFormUrl() {
+                    navigator.clipboard.writeText(this.formUrl).then(() => {
+                        this.copied = true;
+                        setTimeout(() => {
+                            this.copied = false;
+                        }, 2000);
+                    }).catch(err => {
+                        console.error('Error copying text: ', err);
+                    });
                 }
             }
         }).mount('#app');
