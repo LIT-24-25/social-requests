@@ -5,10 +5,11 @@ from urllib.parse import urlparse, parse_qs
 from typing import List, Dict, Optional, Tuple
 from complaints.models import Complaint
 from gigachat import GigaChat
-from clusters.instances import youtube_api_key, gigachat_token
+from clusters.instances import youtube_api_key, gigachat_token, voyage_api_key
 from tqdm import tqdm
 import random
 import logging
+import voyageai
 
 logger = logging.getLogger(__name__)
 
@@ -298,6 +299,9 @@ class Command(BaseCommand):
         
         # Initialize GigaChat client once
         giga_client = GigaChat(credentials=gigachat_token, verify_ssl_certs=False)
+
+        #Initialize Voyage client once
+        voyage_client = voyageai.Client(voyage_api_key)
         
         # Create progress bar for batch processing
         batch_pbar = tqdm(batches, desc="Processing batches", unit="batch")
@@ -308,7 +312,7 @@ class Command(BaseCommand):
             try:
                 # Use the static method for batch processing
                 processed_batch = Complaint.batch_process_embeddings(
-                    complaint_batch, text_batch, giga_client
+                    complaint_batch, text_batch, voyage_client
                 )
                 processed_complaints.extend(processed_batch)
                 logger.info(f"Successfully processed batch {batch_index}/{len(batches)}")

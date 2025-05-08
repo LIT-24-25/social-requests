@@ -99,7 +99,7 @@ def create_complaint(request, project_id=None):
             
             # Генерируем эмбеддинги для жалобы
             try:
-                new_item.call_gigachat_embeddings()
+                new_item.call_voyage_embeddings()
                 new_item.save()
             except Exception as e:
                 logger.error(f"Error generating embeddings for complaint {new_item.id}: {str(e)}")
@@ -442,7 +442,7 @@ def search_complaints(request, project_id=None):
                 try:
                     # Generate embedding for the search query
                     query_complaint = Complaint(text=search_query)
-                    query_embedding = query_complaint.call_gigachat_embeddings()
+                    query_embedding = query_complaint.call_voyage_embeddings()
                     
                     # Filter complaints with embeddings
                     complaints_with_embeddings = complaints.exclude(embedding=None)

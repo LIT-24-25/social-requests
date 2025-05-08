@@ -12,7 +12,7 @@ from tqdm import tqdm
 from gigachat import GigaChat
 from gigachat.exceptions import GigaChatException
 from complaints.models import Complaint
-from clusters.instances import gigachat_token
+from clusters.instances import gigachat_token, voyage_api_key
 
 class Command(BaseCommand):
     help = "Load complaint data from CSV file into database with embeddings generation"
@@ -92,6 +92,7 @@ class Command(BaseCommand):
 
     def _process_batch_with_resize(self, complaints, texts, giga_client):
         """Process a batch with automatic resizing on errors"""
+        voyage_client = voyageai.Client(voyage_api_key)
         if not complaints:
             return 0
             
@@ -100,7 +101,7 @@ class Command(BaseCommand):
             processed_count = 0
             for complaint, text in zip(complaints, texts):
                 try:
-                    complaint.call_gigachat_embeddings(text, giga_client)
+                    complaint.call_voyage_embeddings(text, voyage_client)
                     complaint.save()
                     processed_count += 1
                 except Exception as e:
@@ -112,7 +113,7 @@ class Command(BaseCommand):
             processed_complaints = Complaint.batch_process_embeddings(
                 complaints=complaints,
                 texts=texts,
-                giga_client=giga_client
+                voyage_client=voyage_client
             )
             # Save to database - use bulk_create
             # Note: bulk_create bypasses the save() method, but embeddings are already set

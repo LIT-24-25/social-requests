@@ -3,9 +3,10 @@ from clusters.models import Cluster
 from projects.models import Project
 from gigachat import GigaChat
 from gigachat.exceptions import GigaChatException
-from clusters.instances import gigachat_token
+from clusters.instances import gigachat_token, voyage_api_key
 from typing import List
 import logging
+import voyageai
 
 logger = logging.getLogger(__name__)
 
@@ -49,8 +50,26 @@ class Complaint(models.Model):
             logger.error(f"Error generating embeddings: {str(e)}")
             raise GigaChatException(f"Ошибка генерации: {str(e)}")
     
+    def call_voyage_embeddings(self, text=None, voyage_client=None):
+        try:
+            if not text or not isinstance(text, str):
+                text = self.text
+                
+            if not text or not isinstance(text, str):
+                raise ValueError("Text must be a non-empty string")
+
+            if voyage_client is None:
+                voyage_client=voyageai.Client(voyage_api_key)
+            
+            response = voyage_client.embed(text, model="voyage-3", input_type="document")
+            self.embedding = response.embeddings[0]
+            return self.embedding
+        except Exception as e:
+            logger.error(f"Error generating embeddings: {str(e)}")
+            raise NotImplementedError(f"Ошибка генерации: {str(e)}")
+    
     @staticmethod
-    def batch_process_embeddings(complaints: List['Complaint'], texts: List[str], giga_client) -> List['Complaint']:
+    def batch_process_embeddings(complaints: List['Complaint'], texts: List[str], giga_client: GigaChat) -> List['Complaint']:
         """
         Process embeddings for multiple complaints in a batch.
         
@@ -73,6 +92,35 @@ class Complaint(models.Model):
         batch_response = giga_client.embeddings(texts)
         for i, (complaint, text) in enumerate(zip(complaints, texts)):
             complaint.embedding = batch_response.data[i].embedding
+            processed_complaints.append(complaint)
+            
+        logger.info(f"Batch processed {len(complaints)} complaints for embeddings")
+        return processed_complaints
+
+    @staticmethod
+    def batch_process_embeddings(complaints: List['Complaint'], texts: List[str], voyage_client: voyageai.Client) -> List['Complaint']:
+        """
+        Process embeddings for multiple complaints in a batch.
+        
+        Args:
+            complaints (List[Complaint]): List of complaint objects to process
+            texts (List[str]): List of complaint texts for embedding
+            giga_client: GigaChat client instance
+            
+        Returns:
+            List[Complaint]: List of processed complaints with embeddings
+        """
+        if len(complaints) != len(texts):
+            raise ValueError("Length of complaints and texts must match")
+        
+        if not complaints:
+            return []
+            
+        processed_complaints = []
+
+        batch_response = voyage_client.embed(texts, model="voyage-3", input_type="document")
+        for i, (complaint, text) in enumerate(zip(complaints, texts)):
+            complaint.embedding = batch_response.embeddings[i]
             processed_complaints.append(complaint)
             
         logger.info(f"Batch processed {len(complaints)} complaints for embeddings")
