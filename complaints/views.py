@@ -11,13 +11,14 @@ from django.shortcuts import get_object_or_404
 from django.http import JsonResponse
 import json
 from django.views.decorators.csrf import csrf_exempt
-from django.core.management import call_command
+from django.core.management import call_command, CommandError
 import logging
 import threading
 import uuid
 from urllib.parse import urlparse
 from projects.models import Project
 from sklearn.metrics.pairwise import cosine_similarity
+from .management.commands.add_youtube import Command as YouTubeCommand
 
 logger = logging.getLogger(__name__)
 
@@ -342,61 +343,42 @@ def run_add_youtube_command(task_id, video_url, max_results, batch_size, project
         logger.error(f"Error in YouTube import task {task_id}: {str(e)}")
 
 @csrf_exempt
-def add_youtube_api(request, project_id=None):
-    if request.method == 'POST':
+def add_youtube_api(request, project_id):
+    try:
+        data = json.loads(request.body)
+        video_url = data.get('video_url')
+        
+        if not video_url:
+            return JsonResponse({'error': 'YouTube URL is required'}, status=400)
+            
+        # Validate URL
+        is_valid, error_message = is_valid_youtube_url(video_url)
+        if not is_valid:
+            return JsonResponse({'error': error_message}, status=400)
+            
         try:
-            data = json.loads(request.body)
-            video_url = data.get('video_url')
+            # Get initial count
+            initial_count = Complaint.objects.filter(project_id=project_id).count()
             
-            # Validate and sanitize parameters
-            try:
-                max_results = int(data.get('max_results', 1000))
-                if max_results <= 0:
-                    max_results = 1000  # Use default if invalid
-            except (TypeError, ValueError):
-                max_results = 1000  # Use default if conversion fails
-                
-            try:
-                batch_size = int(data.get('batch_size', 50))
-                if batch_size <= 0:
-                    batch_size = 50  # Use default if invalid
-            except (TypeError, ValueError):
-                batch_size = 50  # Use default if conversion fails
+            # Run the command directly
+            command = YouTubeCommand()
+            command.handle(video_url=video_url, project_id=project_id)
             
-            # Validate YouTube URL before starting the thread
-            is_valid, message = is_valid_youtube_url(video_url)
-            if not is_valid:
-                return JsonResponse({"error": message}, status=400)
+            # Get final count and calculate difference
+            final_count = Complaint.objects.filter(project_id=project_id).count()
+            imported_count = final_count - initial_count
             
-            # Generate a task ID
-            task_id = str(uuid.uuid4())
+            return JsonResponse({
+                'message': f'YouTube comments successfully imported! ({imported_count} comments)',
+                'count': imported_count
+            })
+        except CommandError as e:
+            return JsonResponse({'error': str(e)}, status=400)
             
-            # Start the command in a separate thread
-            thread = threading.Thread(
-                target=run_add_youtube_command, 
-                args=(task_id, video_url, max_results, batch_size, project_id)
-            )
-            thread.daemon = True  # Thread will exit when main program exits
-            thread.start()
-            
-            # Initialize task status
-            tasks_status[task_id] = {'status': 'PENDING', 'result': None}
-            
-            return JsonResponse({"message": "YouTube import started", "task_id": task_id})
-        except json.JSONDecodeError:
-            return JsonResponse({"error": "Invalid JSON format"}, status=400)
-        except Exception as e:
-            return JsonResponse({"error": str(e)}, status=500)
-    else:
-        return JsonResponse({"error": "Method not allowed"}, status=405)
-
-@csrf_exempt
-def task_status_api(request, task_id, project_id=None):
-    """Get the status of a background task"""
-    if task_id in tasks_status:
-        return JsonResponse(tasks_status[task_id])
-    else:
-        return JsonResponse({"status": "UNKNOWN", "result": None}, status=404)
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Invalid JSON data'}, status=400)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
 
 @csrf_exempt
 def search_complaints(request, project_id=None):

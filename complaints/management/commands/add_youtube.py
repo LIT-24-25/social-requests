@@ -19,12 +19,6 @@ class Command(BaseCommand):
         parser.add_argument('video_url', type=str, help='URL of the YouTube video')
         parser.add_argument('project_id', type=int, help='ID of the project')
         parser.add_argument(
-            '--max-results',
-            type=int,
-            default=1000,
-            help='Maximum number of comments to retrieve (default: 1000)'
-        )
-        parser.add_argument(
             '--batch-size',
             type=int,
             default=50,
@@ -92,14 +86,13 @@ class Command(BaseCommand):
         # If we get here, we couldn't extract a video ID
         raise ValueError("Could not extract video ID from URL. Please use a standard YouTube URL format.")
 
-    def get_comment_replies(self, youtube, parent_id: str, max_results: int = 100) -> List[Dict]:
+    def get_comment_replies(self, youtube, parent_id: str) -> List[Dict]:
         """
         Retrieve replies for a specific comment.
         
         Args:
             youtube: YouTube API client
             parent_id (str): ID of the parent comment
-            max_results (int): Maximum number of replies to retrieve
             
         Returns:
             List[Dict]: List of reply comments
@@ -109,11 +102,10 @@ class Command(BaseCommand):
             request = youtube.comments().list(
                 part="snippet",
                 parentId=parent_id,
-                maxResults=max_results,
                 textFormat="plainText"
             )
 
-            while request and len(replies) < max_results:
+            while request:
                 response = request.execute()
                 
                 for item in response['items']:
@@ -123,12 +115,11 @@ class Command(BaseCommand):
                         'text': item['snippet']['textDisplay'],
                     })
 
-                if 'nextPageToken' in response and len(replies) < max_results:
+                if 'nextPageToken' in response:
                     request = youtube.comments().list(
                         part="snippet",
                         parentId=parent_id,
                         pageToken=response['nextPageToken'],
-                        maxResults=min(max_results - len(replies), 120) if (max_results - len(replies)) > 0 else 120,
                         textFormat="plainText"
                     )
                 else:
@@ -139,13 +130,12 @@ class Command(BaseCommand):
             logger.warning(f"Error fetching replies for comment {parent_id}: {str(e)}")
             return []
 
-    def get_youtube_comments(self, video_url: str, max_results: int = 100) -> List[Dict]:
+    def get_youtube_comments(self, video_url: str) -> List[Dict]:
         """
         Retrieve comments and their replies from a YouTube video.
         
         Args:
             video_url (str): URL of the YouTube video
-            max_results (int): Maximum number of top-level comments to retrieve
             
         Returns:
             List[Dict]: List of comments and their replies
@@ -160,66 +150,55 @@ class Command(BaseCommand):
             if not video_id:
                 raise ValueError("Invalid YouTube URL - could not extract video ID")
 
-            # Try to build the YouTube service
             try:
                 youtube = build('youtube', 'v3', developerKey=youtube_api_key)
             except Exception as e:
                 raise ConnectionError(f"Failed to connect to YouTube API: {str(e)}")
 
             all_comments = []
-            top_level_count = 0
 
             try:
                 request = youtube.commentThreads().list(
                     part="snippet,replies",
                     videoId=video_id,
-                    maxResults=min(max_results, 120) if max_results > 0 else 120,
                     textFormat="plainText"
                 )
 
-                while request and top_level_count < max_results:
+                while request:
                     try:
                         response = request.execute()
                     except Exception as e:
                         raise ConnectionError(f"Failed to fetch comments from YouTube API: {str(e)}")
                     
                     if 'items' not in response or not response['items']:
-                        self.stdout.write("No comments found for this video or comments may be disabled.")
-                        break
+                        raise ValueError("No comments found for this video or comments may be disabled.")
                     
                     for item in response['items']:
                         comment = item['snippet']['topLevelComment']['snippet']
                         comment_id = item['snippet']['topLevelComment']['id']
                         
-                        # Add top-level comment
                         all_comments.append({
                             'name': comment['authorDisplayName'],
                             'email': comment['authorChannelUrl'],
                             'text': comment['textDisplay'],
                         })
-                        top_level_count += 1
 
-                        # Check if comment has replies
                         if item.get('snippet', {}).get('totalReplyCount', 0) > 0:
-                            # Fetch all replies for this comment
                             replies = self.get_comment_replies(youtube, comment_id)
                             all_comments.extend(replies)
 
-                    if 'nextPageToken' in response and top_level_count < max_results:
+                    if 'nextPageToken' in response:
                         request = youtube.commentThreads().list(
                             part="snippet,replies",
                             videoId=video_id,
                             pageToken=response['nextPageToken'],
-                            maxResults=min(max_results - top_level_count, 120) if (max_results - top_level_count) > 0 else 120,
                             textFormat="plainText"
                         )
                     else:
                         request = None
                 
-                self.stdout.write(f"Found {len(all_comments)} total comments ({top_level_count} top-level comments and {len(all_comments) - top_level_count} replies)")
-                
                 if not all_comments:
-                    self.stdout.write(self.style.WARNING("No comments were retrieved. The video might have comments disabled."))
+                    raise ValueError("No comments were retrieved. The video might have comments disabled.")
                 
                 return all_comments
 
@@ -232,13 +211,10 @@ class Command(BaseCommand):
                     raise Exception(f"Error fetching comments: {str(e)}")
 
         except ValueError as e:
-            # Re-raise validation errors
             raise
         except ConnectionError as e:
-            # Re-raise connection errors
             raise
         except Exception as e:
-            # Convert other errors to a generic exception
             raise Exception(f"Error processing YouTube URL: {str(e)}")
 
     def prepare_batches(self, comments: List[Dict], batch_size: int, project_id: int) -> Tuple[List[Complaint], List[str]]:
@@ -325,91 +301,37 @@ class Command(BaseCommand):
         """
         video_url = options['video_url']
         project_id = options['project_id']
-        
-        # Validate and sanitize parameters
-        max_results = options.get('max_results', 1000)
-        if max_results <= 0:
-            max_results = 1000
-            logger.warning("Invalid max_results value, using default (1000)")
-            
         batch_size = options.get('batch_size', 50)
+        
         if batch_size <= 0:
             batch_size = 50
             logger.warning("Invalid batch_size value, using default (50)")
 
         logger.info("Starting YouTube comments processing")
         
-        # Create a progress bar for tracking overall progress
-        overall_progress = tqdm(total=4, desc="Overall process", position=0)
-        
         try:
-            # Fetch comments from YouTube
-            overall_progress.set_description("Fetching YouTube comments")
-            try:
-                comments = self.get_youtube_comments(video_url, max_results)
-                logger.info(f"Successfully retrieved {len(comments)} total comments")
-            except ValueError as e:
-                # URL validation errors
-                overall_progress.close()
-                logger.error(f"YouTube URL validation error: {str(e)}")
-                self.stdout.write(self.style.ERROR(f"Invalid YouTube URL: {str(e)}"))
-                return
-            except ConnectionError as e:
-                # Connection errors
-                overall_progress.close()
-                logger.error(f"YouTube API connection error: {str(e)}")
-                self.stdout.write(self.style.ERROR(f"Connection error: {str(e)}"))
-                return
-            except Exception as e:
-                # Other API errors
-                overall_progress.close()
-                logger.error(f"YouTube API error: {str(e)}")
-                self.stdout.write(self.style.ERROR(f"YouTube API error: {str(e)}"))
-                return
-            
-            overall_progress.update(1)
-            
-            # If no comments were found but no error was raised
+            comments = self.get_youtube_comments(video_url)
             if not comments:
-                overall_progress.close()
-                logger.warning("No comments found for the video. The video might have comments disabled.")
-                self.stdout.write(self.style.WARNING("No comments found for the video. The video might have comments disabled."))
-                return
-            
-            # Prepare batches of complaints and their texts
-            overall_progress.set_description("Preparing complaint batches")
+                raise ValueError("No comments found for the video")
+                
             complaints, texts = self.prepare_batches(comments, batch_size, project_id)
-            logger.info(f"Prepared {len(complaints)} complaints for batch processing")
-            overall_progress.update(1)
-            
-            # Process batches
-            overall_progress.set_description("Processing complaint batches")
+            if not complaints:
+                raise ValueError("Failed to prepare complaints from comments")
+                
             processed_complaints = self.process_batches(complaints, texts, batch_size)
-            logger.info(f"Successfully processed {len(processed_complaints)} complaints with embeddings")
-            overall_progress.update(1)
-            
-            # Save processed complaints to database
-            overall_progress.set_description("Saving to database")
-            if processed_complaints:
-                created_complaints = Complaint.objects.bulk_create(processed_complaints, batch_size=100)
-                success_count = len(created_complaints)
-                logger.info(f"Saved {success_count} complaints to database")
-            else:
-                success_count = 0
-                logger.warning("No complaints were processed successfully")
-            overall_progress.update(1)
-            
-            # Close the progress bar
-            overall_progress.close()
-            
+            if not processed_complaints:
+                raise ValueError("Failed to process complaints")
+                
+            created_complaints = Complaint.objects.bulk_create(processed_complaints, batch_size=100)
+            if not created_complaints:
+                raise ValueError("Failed to save complaints to database")
+                
             logger.info("Completed processing all YouTube comments")
             self.stdout.write(
                 self.style.SUCCESS(
-                    f'Successfully imported {success_count} out of {len(complaints)} comments'
+                    f'YouTube comments successfully imported! ({len(created_complaints)} comments)'
                 )
             )
         except Exception as e:
-            # Make sure to close the progress bar on error
-            overall_progress.close()
             logger.error(f"Failed to process YouTube comments: {str(e)}")
             raise CommandError(str(e)) 
