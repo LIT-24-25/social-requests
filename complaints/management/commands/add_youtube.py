@@ -18,12 +18,6 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument('video_url', type=str, help='URL of the YouTube video')
         parser.add_argument('project_id', type=int, help='ID of the project')
-        parser.add_argument(
-            '--batch-size',
-            type=int,
-            default=50,
-            help='Number of comments to process in one batch (default: 50)'
-        )
 
     def get_video_id(self, url: str) -> Optional[str]:
         """
@@ -156,6 +150,7 @@ class Command(BaseCommand):
                 raise ConnectionError(f"Failed to connect to YouTube API: {str(e)}")
 
             all_comments = []
+            logger.info("Starting to fetch comments from YouTube API")
 
             try:
                 request = youtube.commentThreads().list(
@@ -164,6 +159,7 @@ class Command(BaseCommand):
                     textFormat="plainText"
                 )
 
+                pbar = None
                 while request:
                     try:
                         response = request.execute()
@@ -172,6 +168,10 @@ class Command(BaseCommand):
                     
                     if 'items' not in response or not response['items']:
                         raise ValueError("No comments found for this video or comments may be disabled.")
+                    
+                    if pbar is None:
+                        total_results = response.get('pageInfo', {}).get('totalResults', 0)
+                        pbar = tqdm(total=total_results, desc="Fetching comments", unit="comment")
                     
                     for item in response['items']:
                         comment = item['snippet']['topLevelComment']['snippet']
@@ -184,8 +184,11 @@ class Command(BaseCommand):
                         })
 
                         if item.get('snippet', {}).get('totalReplyCount', 0) > 0:
+                            logger.debug(f"Fetching replies for comment {comment_id}")
                             replies = self.get_comment_replies(youtube, comment_id)
                             all_comments.extend(replies)
+                        
+                        pbar.update(1)
 
                     if 'nextPageToken' in response:
                         request = youtube.commentThreads().list(
@@ -197,9 +200,13 @@ class Command(BaseCommand):
                     else:
                         request = None
                 
+                if pbar:
+                    pbar.close()
+                
                 if not all_comments:
                     raise ValueError("No comments were retrieved. The video might have comments disabled.")
                 
+                logger.info(f"Successfully retrieved {len(all_comments)} comments and replies")
                 return all_comments
 
             except Exception as e:
@@ -295,24 +302,41 @@ class Command(BaseCommand):
             
         return processed_complaints
 
+    def calculate_batch_size(self, total_comments: int) -> int:
+        """
+        Calculate optimal batch size based on number of comments.
+        
+        Args:
+            total_comments (int): Total number of comments
+            
+        Returns:
+            int: Calculated batch size
+        """
+        if total_comments <= 50:
+            return 10
+        elif total_comments <= 200:
+            return 25
+        elif total_comments <= 500:
+            return 50
+        else:
+            return 100
+
     def handle(self, *args, **options):
         """
         Main command handler.
         """
         video_url = options['video_url']
         project_id = options['project_id']
-        batch_size = options.get('batch_size', 50)
         
-        if batch_size <= 0:
-            batch_size = 50
-            logger.warning("Invalid batch_size value, using default (50)")
-
         logger.info("Starting YouTube comments processing")
         
         try:
             comments = self.get_youtube_comments(video_url)
             if not comments:
                 raise ValueError("No comments found for the video")
+
+            batch_size = self.calculate_batch_size(len(comments))
+            logger.info(f"Using batch size of {batch_size} for {len(comments)} comments")
                 
             complaints, texts = self.prepare_batches(comments, batch_size, project_id)
             if not complaints:

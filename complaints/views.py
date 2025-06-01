@@ -289,53 +289,18 @@ def regenerate_summary(request, project_id):
 # Dictionary to store task status (for simple in-memory task tracking)
 tasks_status = {}
 
-def is_valid_youtube_url(url):
-    """Validate if the URL is a valid YouTube URL"""
-    if not url:
-        return False, "YouTube URL is required"
-        
-    # Check if it's a valid URL
-    try:
-        parsed_url = urlparse(url)
-        if not parsed_url.scheme or not parsed_url.netloc:
-            return False, "Invalid URL format. Please enter a complete URL including http:// or https://"
-            
-        # Check if it's from YouTube - only essential validation
-        if not ('youtube.com' in parsed_url.netloc or 'youtu.be' in parsed_url.netloc):
-            return False, "The URL must be from YouTube (youtube.com or youtu.be)"
-        
-        return True, "Valid YouTube URL"
-    except Exception as e:
-        return False, f"Error validating URL: {str(e)}"
-
-def run_add_youtube_command(task_id, video_url, max_results, batch_size, project_id):
+def run_add_youtube_command(task_id, video_url, project_id):
     try:
         # Update task status to started
         tasks_status[task_id] = {'status': 'STARTED', 'result': None}
-        
-        # Validate parameters
-        if max_results <= 0:
-            max_results = 1000  # Set a default if invalid
-            logger.warning(f"Invalid max_results value, using default (1000)")
-            
-        if batch_size <= 0:
-            batch_size = 50  # Set a default if invalid
-            logger.warning(f"Invalid batch_size value, using default (50)")
-        
-        # Validate YouTube URL
-        is_valid, message = is_valid_youtube_url(video_url)
-        if not is_valid:
-            tasks_status[task_id] = {'status': 'FAILURE', 'result': message}
-            logger.error(f"Invalid YouTube URL: {message}")
-            return
-        
+
         # Run the command
-        call_command('add_youtube', video_url, project_id, max_results=max_results, batch_size=batch_size)
+        call_command('add_youtube', video_url, project_id)
         
         # Update task status to success
         tasks_status[task_id] = {
             'status': 'SUCCESS', 
-            'result': {'success': True, 'success_count': max_results}
+            'result': {'success': True}
         }
     except Exception as e:
         # Update task status to failure
@@ -344,41 +309,43 @@ def run_add_youtube_command(task_id, video_url, max_results, batch_size, project
 
 @csrf_exempt
 def add_youtube_api(request, project_id):
-    try:
-        data = json.loads(request.body)
-        video_url = data.get('video_url')
-        
-        if not video_url:
-            return JsonResponse({'error': 'YouTube URL is required'}, status=400)
-            
-        # Validate URL
-        is_valid, error_message = is_valid_youtube_url(video_url)
-        if not is_valid:
-            return JsonResponse({'error': error_message}, status=400)
-            
+    if request.method == 'POST':
         try:
+            data = json.loads(request.body)
+            video_url = data.get('video_url')
+            
+            if not video_url:
+                return JsonResponse({"error": "video_url is required"}, status=400)
+            
+            task_id = str(uuid.uuid4())
+            
+            thread = threading.Thread(
+                target=run_add_youtube_command,
+                args=(task_id, video_url, project_id)
+            )
+            thread.start()
+            
             # Get initial count
             initial_count = Complaint.objects.filter(project_id=project_id).count()
             
-            # Run the command directly
-            command = YouTubeCommand()
-            command.handle(video_url=video_url, project_id=project_id)
+            # Wait for thread to complete
+            thread.join()
             
             # Get final count and calculate difference
             final_count = Complaint.objects.filter(project_id=project_id).count()
             imported_count = final_count - initial_count
             
             return JsonResponse({
-                'message': f'YouTube comments successfully imported! ({imported_count} comments)',
-                'count': imported_count
+                "message": f"Successfully imported {imported_count} comments",
+                "task_id": task_id
             })
-        except CommandError as e:
-            return JsonResponse({'error': str(e)}, status=400)
             
-    except json.JSONDecodeError:
-        return JsonResponse({'error': 'Invalid JSON data'}, status=400)
-    except Exception as e:
-        return JsonResponse({'error': str(e)}, status=500)
+        except json.JSONDecodeError:
+            return JsonResponse({"error": "Invalid JSON format"}, status=400)
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=500)
+            
+    return JsonResponse({"error": "Method not allowed"}, status=405)
 
 @csrf_exempt
 def search_complaints(request, project_id=None):
