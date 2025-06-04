@@ -2,7 +2,7 @@ from django.urls import path
 from .views import (
     ComplaintListCreate, ComplaintDetail, CreateClusterWithComplaints, 
     apply_tsne_api, get_cluster_details, regenerate_summary,
-    add_youtube_api, task_status_api, search_complaints, clusterise
+    add_youtube_api, search_complaints, clusterise
 )
 
 urlpatterns = [
@@ -13,13 +13,12 @@ urlpatterns = [
     path('clusters/<int:cluster_id>/details/', get_cluster_details, name='cluster-details'),
     path('regenerate-summary/', regenerate_summary, name='regenerate-summary'),
     
-    # New YouTube API endpoints
+    # YouTube API endpoint
     path('add-youtube/', add_youtube_api, name='add-youtube-api'),
-    path('task-status/<str:task_id>/', task_status_api, name='task-status-api'),
     
     # Search API endpoint
     path('search/', search_complaints, name='search-complaints'),
     
     # Clusterising API endpoint
-    path('clusterising/', clusterise, name='clusterising-api'),
+    path('clusterising/', clusterise, name='clusterising'),
 ]

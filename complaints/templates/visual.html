@@ -265,8 +265,6 @@
                     youtubeUrl: "",
                     isProcessingYouTube: false,
                     currentStatusMessage: "",
-                    countdownSeconds: 0,
-                    countdownIntervalId: null,
                     youtubeError: null,
                     searchType: "email",
                     searchQuery: "",
@@ -861,39 +859,25 @@
                         return;
                     }
                     
-                    // Clear any existing countdown timer
-                    this.clearCountdownTimer();
-                    
                     try {
                         this.isProcessingYouTube = true;
                         this.error = null;
-                        this.youtubeError = null; // Clear any previous YouTube errors
-                        this.currentStatusMessage = "Starting import process...";
+                        this.youtubeError = null;
+                        this.currentStatusMessage = "Importing comments...";
                         
                         const response = await fetch('/project/{{ project_id }}/api/add-youtube/', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ 
-                                video_url: this.youtubeUrl,
-                                max_results: 1000,  // Default max results
-                                batch_size: 50,     // Default batch size
-                                project_id: this.projectId
+                                video_url: this.youtubeUrl
                             })
                         });
 
                         if (response.ok) {
                             const data = await response.json();
                             this.youtubeUrl = "";
-                            
-                            if (data.task_id) {
-                                this.currentStatusMessage = "Task started. Checking status...";
-                                this.checkYouTubeTaskStatus(data.task_id);
-                            } else {
-                                this.fetchPoints();
-                                alert("YouTube comments successfully imported!");
-                                this.isProcessingYouTube = false;
-                                this.currentStatusMessage = "";
-                            }
+                            await this.fetchPoints();
+                            alert(data.message);
                         } else {
                             const errorData = await response.json();
                             const errorMessage = errorData.error || "Error importing YouTube comments";
@@ -902,102 +886,10 @@
                     } catch (error) {
                         console.error('Error:', error);
                         this.error = error.message;
-                        this.youtubeError = error.message; // Set YouTube specific error
-                        this.currentStatusMessage = "Import failed";
-                        alert("Error importing YouTube comments: " + error.message);
+                        this.youtubeError = error.message;
+                    } finally {
                         this.isProcessingYouTube = false;
-                    }
-                },
-                
-                // Check task status with exponential backoff
-                async checkYouTubeTaskStatus(taskId, attempt = 1) {
-                    try {
-                        // Clear any existing countdown interval
-                        this.clearCountdownTimer();
-                        
-                        const response = await fetch(`/project/{{ project_id }}/api/task-status/${taskId}/`);
-                        if (response.ok) {
-                            const data = await response.json();
-                            
-                            if (['PENDING', 'STARTED', 'PROGRESS'].includes(data.status)) {
-                                // Calculate next polling interval with exponential backoff
-                                // Start with 3 seconds, max out at 30 seconds
-                                const baseDelay = 3000; // 3 seconds
-                                const maxDelay = 30000; // 30 seconds
-                                const backoffFactor = 1.5;
-                                
-                                let nextDelay = Math.min(
-                                    baseDelay * Math.pow(backoffFactor, attempt - 1), 
-                                    maxDelay
-                                );
-                                
-                                // Set initial countdown seconds
-                                this.countdownSeconds = Math.round(nextDelay/1000);
-                                
-                                // Update status message initially
-                                this.updateStatusWithCountdown(data.status);
-                                
-                                // Start countdown timer that updates every second
-                                this.countdownIntervalId = setInterval(() => {
-                                    this.countdownSeconds--;
-                                    this.updateStatusWithCountdown(data.status);
-                                    
-                                    // If countdown reaches zero, clear the interval
-                                    if (this.countdownSeconds <= 0) {
-                                        this.clearCountdownTimer();
-                                    }
-                                }, 1000);
-                                
-                                console.log(`Task still running. Next check in ${nextDelay/1000} seconds`);
-                                
-                                // Task still running, check again with increasing delay
-                                setTimeout(() => this.checkYouTubeTaskStatus(taskId, attempt + 1), nextDelay);
-                            } else if (data.status === 'SUCCESS') {
-                                // Task complete
-                                this.clearCountdownTimer();
-                                this.currentStatusMessage = "Import complete! Refreshing data...";
-                                this.youtubeError = null; // Clear any errors on success
-                                
-                                // Store the current selected cluster ID
-                                const currentClusterId = this.selectedClusterId;
-                                
-                                // Refresh points
-                                await this.fetchPoints();
-                                
-                                alert(`YouTube import complete! Imported ${data.result.success_count} comments.`);
-                                this.isProcessingYouTube = false;
-                                this.currentStatusMessage = "";
-                            } else {
-                                // Task failed
-                                this.clearCountdownTimer();
-                                this.currentStatusMessage = "Import failed";
-                                const errorMessage = data.result || "YouTube import failed";
-                                this.youtubeError = errorMessage; // Set YouTube specific error
-                                throw new Error(errorMessage);
-                            }
-                        } else {
-                            throw new Error("Error checking task status");
-                        }
-                    } catch (error) {
-                        console.error('Error checking task status:', error);
-                        this.clearCountdownTimer();
-                        this.currentStatusMessage = "Error checking import status";
-                        this.youtubeError = error.message; // Set YouTube specific error
-                        alert("Error checking YouTube import status: " + error.message);
-                        this.isProcessingYouTube = false;
-                    }
-                },
-                
-                // Helper to update status message with current countdown
-                updateStatusWithCountdown(status) {
-                    this.currentStatusMessage = `Status: ${status}. Next check in ${this.countdownSeconds} second${this.countdownSeconds !== 1 ? 's' : ''}...`;
-                },
-                
-                // Helper to clear countdown timer
-                clearCountdownTimer() {
-                    if (this.countdownIntervalId) {
-                        clearInterval(this.countdownIntervalId);
-                        this.countdownIntervalId = null;
+                        this.currentStatusMessage = "";
                     }
                 },
                 
