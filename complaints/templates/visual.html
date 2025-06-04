@@ -8,6 +8,22 @@
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <link href="{% static 'css/visual.css' %}" rel="stylesheet">
+    <style>
+        .spinner {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+            margin-left: 8px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
 </head>
 <body>
     <div id="app">
@@ -25,8 +41,14 @@
                         <option v-for="option in availableModels" :key="option" :value="option">[[ option ]]</option>
                     </select>
                     <div class="buttons" style="margin-top: 8px;">
-                        <button @click="sendSelected">Send Selected</button>
-                        <button @click="resetSelection" style="background-color: #6b7280;">Reset Selection</button>
+                        <button @click="sendSelected" :disabled="isSendingSelected">
+                            Send Selected
+                            <span v-if="isSendingSelected" class="spinner"></span>
+                        </button>
+                        <button @click="resetSelection" :disabled="isResetting" style="background-color: #6b7280;">
+                            Reset Selection
+                            <span v-if="isResetting" class="spinner"></span>
+                        </button>
                     </div>
                 </div>
                 <hr class="section-divider">
@@ -50,6 +72,7 @@
                                 <button @click.stop="regenerateSummary(cluster.id)" 
                                         :disabled="isRegenerating === cluster.id">
                                     [[ isRegenerating === cluster.id ? 'Regenerating...' : 'Regenerate Summary' ]]
+                                    <span v-if="isRegenerating === cluster.id" class="spinner"></span>
                                 </button>
                             </div>
                             <div v-if="clusterDetails[cluster.id]?.complaints" class="complaint-list">
@@ -127,7 +150,10 @@
                                     <span>[[ youtubeError ]]</span>
                                     <button @click="clearYoutubeError" style="background: none; color: #dc2626; font-weight: bold; padding: 0 5px; font-size: 1rem; min-width: auto;">×</button>
                                 </div>
-                                <button @click="showFormQRDialog" style="margin-top: 12px; width: 100%;">Generate Form</button>
+                                <button @click="showFormQRDialog" style="margin-top: 12px; width: 100%;" :disabled="isGeneratingForm">
+                                    Generate Form
+                                    <span v-if="isGeneratingForm" class="spinner"></span>
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -146,7 +172,13 @@
                             </div>
                             <button @click="performSearch" style="margin-top: 8px; width: 100%;" :disabled="isSearching">
                                 [[ isSearching ? 'Searching...' : 'Search' ]]
+                                <span v-if="isSearching" class="spinner"></span>
                             </button>
+                            <div v-if="searchResults.length === 0 && hasSearched && !isSearching" 
+                                style="margin-top: 10px; padding: 8px; background-color: #f3f4f6; border: 1px solid #e5e7eb; 
+                                border-radius: 6px; color: #6b7280; font-size: 0.9rem; text-align: center;">
+                                No results found for '[[ searchQuery ]]'
+                            </div>
                             <div v-if="searchResults.length > 0" style="margin-top: 8px; font-size: 0.9rem; color: #4b5563;">
                                 Found [[ searchResults.length ]] results
                             </div>
@@ -161,8 +193,14 @@
                                 <span>Perplexity: [[ step ]]</span>
                             </label>
                             <input type="range" id="perplexitySlider" min="1" max="50" step="1" v-model="step" class="form-range">
-                            <button @click="applyTsne" style="margin-top: 10px; width: 100%;">Apply T-SNE</button>
-                            <button @click="applyAutoClustering" style="margin-top: 8px; width: 100%;">Automatic Clustering</button>
+                            <button @click="applyTsne" style="margin-top: 10px; width: 100%;" :disabled="isApplyingTsne">
+                                Apply T-SNE
+                                <span v-if="isApplyingTsne" class="spinner"></span>
+                            </button>
+                            <button @click="applyAutoClustering" style="margin-top: 8px; width: 100%;" :disabled="isApplyingClustering">
+                                Automatic Clustering
+                                <span v-if="isApplyingClustering" class="spinner"></span>
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -273,7 +311,13 @@
                     showQRDialog: false,
                     formUrl: "",
                     qrCodeUrl: "",
-                    copied: false
+                    copied: false,
+                    isSendingSelected: false,
+                    isResetting: false,
+                    isApplyingTsne: false,
+                    isApplyingClustering: false,
+                    isGeneratingForm: false,
+                    hasSearched: false
                 }
             },
             async mounted() {
@@ -291,6 +335,12 @@
                 
                 // Draw initial points
                 this.drawPoints();
+            },
+            watch: {
+                searchQuery() {
+                    // Reset hasSearched when user types new query
+                    this.hasSearched = false;
+                }
             },
             beforeUnmount() {
                 // Clean up any timers when component is destroyed
@@ -540,6 +590,7 @@
                     }
 
                     try {
+                        this.isSendingSelected = true;
                         const response = await fetch('/project/{{ project_id }}/api/create-cluster/', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
@@ -556,6 +607,8 @@
                     } catch (error) {
                         console.error('Error:', error);
                         alert("An error occurred while sending data");
+                    } finally {
+                        this.isSendingSelected = false;
                     }
                 },
                 
@@ -618,13 +671,18 @@
                 },
                 
                 resetSelection() {
+                    this.isResetting = true;
                     this.points.forEach(p => p.selected = false);
                     this.currentPoint = {};
                     this.drawPoints();
+                    setTimeout(() => {
+                        this.isResetting = false;
+                    }, 300);
                 },
                 
                 async applyTsne() {
                     try {
+                        this.isApplyingTsne = true;
                         const response = await fetch('/project/{{ project_id }}/api/apply_tsne/', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
@@ -640,12 +698,15 @@
                     } catch (error) {
                         console.error('Error:', error);
                         alert("An error occurred while sending request");
+                    } finally {
+                        this.isApplyingTsne = false;
                     }
                 },
                 
                 async applyAutoClustering() {
                     try {
                         this.error = null;
+                        this.isApplyingClustering = true;
                         const response = await fetch('/project/{{ project_id }}/api/clusterising/', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' }
@@ -664,6 +725,8 @@
                         console.error('Error automatic clustering:', error);
                         this.error = error.message;
                         alert("Error: " + error.message);
+                    } finally {
+                        this.isApplyingClustering = false;
                     }
                 },
                 
@@ -750,6 +813,8 @@
                     
                     try {
                         this.isSearching = true;
+                        this.searchResults = []; // Reset results before new search
+                        this.hasSearched = false; // Reset search state
                         
                         // Prepare request body
                         const requestBody = {
@@ -773,42 +838,9 @@
                         
                         // Process search results
                         this.searchResults = data.results || [];
+                        this.hasSearched = true; // Set search as completed
                         
-                        if (this.searchResults.length === 0) {
-                            // Show a friendly message for no results instead of an error
-                            this.$nextTick(() => {
-                                const noResultsDiv = document.createElement('div');
-                                noResultsDiv.style.marginTop = '10px';
-                                noResultsDiv.style.padding = '8px';
-                                noResultsDiv.style.backgroundColor = '#f3f4f6';
-                                noResultsDiv.style.border = '1px solid #e5e7eb';
-                                noResultsDiv.style.borderRadius = '6px';
-                                noResultsDiv.style.color = '#6b7280';
-                                noResultsDiv.style.fontSize = '0.9rem';
-                                noResultsDiv.style.textAlign = 'center';
-                                noResultsDiv.textContent = `No results found for '${this.searchQuery}'`;
-                                
-                                // Find the search control group and append the message
-                                const controlGroup = document.querySelector('.control-group');
-                                
-                                // Remove any existing no-results message
-                                const existingMessage = controlGroup.querySelector('.no-results-message');
-                                if (existingMessage) {
-                                    existingMessage.remove();
-                                }
-                                
-                                noResultsDiv.className = 'no-results-message';
-                                controlGroup.appendChild(noResultsDiv);
-                                
-                                // Auto-remove after 5 seconds
-                                setTimeout(() => {
-                                    const messageToRemove = controlGroup.querySelector('.no-results-message');
-                                    if (messageToRemove) {
-                                        messageToRemove.remove();
-                                    }
-                                }, 5000);
-                            });
-                        } else {
+                        if (this.searchResults.length > 0) {
                             // Reset any previous selection
                             this.points.forEach(p => p.selected = false);
                             
@@ -819,14 +851,6 @@
                             this.points.forEach(point => {
                                 if (resultIds.has(point.id)) {
                                     point.selected = true;
-                                }
-                            });
-                            
-                            // Remove any existing no-results message
-                            this.$nextTick(() => {
-                                const existingMessage = document.querySelector('.no-results-message');
-                                if (existingMessage) {
-                                    existingMessage.remove();
                                 }
                             });
                             
@@ -847,7 +871,6 @@
                         }
                     } catch (error) {
                         console.error('Search error:', error);
-                        // Don't set error message to UI, just log to console
                     } finally {
                         this.isSearching = false;
                     }
@@ -945,12 +968,16 @@
                     this.currentPoint = {};
                 },
                 showFormQRDialog() {
+                    this.isGeneratingForm = true;
                     const projectId = '{{ project_id }}';
                     this.formUrl = `${window.location.origin}/project/${projectId}`;
                     // Generate QR code URL using an API
                     this.qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(this.formUrl)}`;
                     this.showQRDialog = true;
                     this.copied = false;
+                    setTimeout(() => {
+                        this.isGeneratingForm = false;
+                    }, 500);
                 },
                 closeQRDialog() {
                     this.showQRDialog = false;
