@@ -11,12 +11,13 @@ from django.shortcuts import get_object_or_404
 from django.http import JsonResponse
 import json
 from django.views.decorators.csrf import csrf_exempt
-from django.core.management import call_command
+from django.core.management import call_command, CommandError
 import logging
 import threading
 import uuid
 from projects.models import Project
 from sklearn.metrics.pairwise import cosine_similarity
+from .management.commands.add_youtube import Command as YouTubeCommand
 
 logger = logging.getLogger(__name__)
 
@@ -201,7 +202,7 @@ def clusterise(request, project_id):
     if request.method == 'POST':
         try:
 
-            call_command('clusterising', project_id=project_id)
+            call_command('clusterising', project_id=project_id, auto_clusters=True)
 
             return JsonResponse({"message": f"Функция clusterising вызвана успешно для проекта {project_id}"})
         except json.JSONDecodeError:
