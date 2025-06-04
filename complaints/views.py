@@ -11,14 +11,12 @@ from django.shortcuts import get_object_or_404
 from django.http import JsonResponse
 import json
 from django.views.decorators.csrf import csrf_exempt
-from django.core.management import call_command, CommandError
+from django.core.management import call_command
 import logging
 import threading
 import uuid
-from urllib.parse import urlparse
 from projects.models import Project
 from sklearn.metrics.pairwise import cosine_similarity
-from .management.commands.add_youtube import Command as YouTubeCommand
 
 logger = logging.getLogger(__name__)
 
@@ -302,6 +300,9 @@ def run_add_youtube_command(task_id, video_url, project_id):
             'status': 'SUCCESS', 
             'result': {'success': True}
         }
+
+        call_command('applying_T-sne', perplexity=25, project_id=project_id)
+
     except Exception as e:
         # Update task status to failure
         tasks_status[task_id] = {'status': 'FAILURE', 'result': str(e)}

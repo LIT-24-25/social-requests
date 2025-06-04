@@ -54,7 +54,6 @@ Experience the platform in action with our interactive visualization dashboard t
 ### 🎨 User Experience
 - **Interactive Dashboard**: Custom cluster creation
 - **Real-time Updates**: Live visualization updates during clustering
-- **Responsive Design**: Bootstrap 5-powered responsive interface
 - **Search & Filter**: Advanced filtering and search capabilities
 
 ### 🔧 Developer Experience
@@ -317,7 +316,6 @@ Our GitHub Actions workflow ensures code quality:
 - **⚡ Async Processing**: Background task management
 
 ### Frontend Stack
-- **🎨 Bootstrap 5**: Modern, responsive UI framework
 - **⚡ Vue.js**: Lightweight, fast and responsive UI
 
 ### DevOps & Deployment
@@ -457,7 +455,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **OpenRouter**: For democratizing access to multiple AI models
 - **Django Community**: For the robust web framework
 - **scikit-learn**: For powerful machine learning algorithms
-- **Bootstrap Team**: For the beautiful UI framework
 - **Vue.js**: For wonderful responsive framework to create powerful websites
 ---
 
