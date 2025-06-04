@@ -203,7 +203,7 @@ def clusterise(request, project_id):
     if request.method == 'POST':
         try:
 
-            call_command('clusterising', project_id=project_id)
+            call_command('clusterising', project_id=project_id, auto_clusters=True)
 
             return JsonResponse({"message": f"Функция clusterising вызвана успешно для проекта {project_id}"})
         except json.JSONDecodeError:
