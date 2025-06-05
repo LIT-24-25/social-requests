@@ -48,7 +48,7 @@ class Command(BaseCommand):
         parser.add_argument(
             '--model',
             type=str,
-            default='GigaChat',
+            default='OpenRouter',
             help='Model to use for generating cluster summaries (OpenRouter or GigaChat)'
         )
         parser.add_argument(
