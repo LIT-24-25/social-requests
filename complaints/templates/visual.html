@@ -100,7 +100,7 @@
             </div>
 
             <div class="canvas-container">
-                <canvas ref="canvas" id="canvas" width="800" height="400"></canvas>
+                <canvas ref="canvas" id="canvas"></canvas>
                 
                 <!-- Complaint detail now always visible -->
                 <div class="complaint-detail">
@@ -317,7 +317,8 @@
                     isApplyingTsne: false,
                     isApplyingClustering: false,
                     isGeneratingForm: false,
-                    hasSearched: false
+                    hasSearched: false,
+                    resizeTimeout: null
                 }
             },
             async mounted() {
@@ -343,8 +344,11 @@
                 }
             },
             beforeUnmount() {
-                // Clean up any timers when component is destroyed
-                this.clearCountdownTimer();
+                // Clean up resize listener
+                window.removeEventListener('resize', this.handleResize);
+                if (this.resizeTimeout) {
+                    clearTimeout(this.resizeTimeout);
+                }
             },
             methods: {
                 // Canvas methods
@@ -355,13 +359,41 @@
                     this.ctx = canvas.getContext('2d');
                     if (!this.ctx) return;
                     
+                    this.resizeCanvas();
                     this.setupCanvasEvents();
+                    
+                    // Add resize listener
+                    window.addEventListener('resize', this.handleResize);
+                },
+                
+                resizeCanvas() {
+                    const canvas = this.$refs.canvas;
+                    if (!canvas) return;
+                    
+                    const rect = canvas.getBoundingClientRect();
+                    
+                    // Set canvas internal size to match display size
+                    canvas.width = rect.width;
+                    canvas.height = rect.height;
+                    
+                    // Redraw points after resize
+                    this.drawPoints();
+                },
+                
+                handleResize() {
+                    // Debounce resize events
+                    clearTimeout(this.resizeTimeout);
+                    this.resizeTimeout = setTimeout(() => {
+                        this.resizeCanvas();
+                    }, 100);
                 },
                 
                 drawPoints() {
                     if (!this.ctx) return;
 
                     const canvas = this.$refs.canvas;
+                    
+                    // Clear the entire canvas
                     this.ctx.clearRect(0, 0, canvas.width, canvas.height);
                     
                     this.ctx.save();
