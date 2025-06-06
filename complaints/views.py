@@ -18,7 +18,7 @@ import uuid
 from projects.models import Project
 from sklearn.metrics.pairwise import cosine_similarity
 from .management.commands.add_youtube import Command as YouTubeCommand
-
+from django.db.models import Q
 logger = logging.getLogger(__name__)
 
 class ComplaintListCreate(generics.ListCreateAPIView):
@@ -380,12 +380,16 @@ def search_complaints(request, project_id=None):
             # Perform search based on search type
             if search_type == 'email':
                 # Case-insensitive partial match on email
-                filtered_complaints = complaints.filter(email__icontains=search_query)
+                import re
+                escaped_query = re.escape(search_query)
+                filtered_complaints = complaints.filter(email__iregex=escaped_query)
                 results = list(filtered_complaints.values('id', 'email', 'name', 'text', 'x', 'y', 'cluster'))
                 
             elif search_type == 'text':
                 # Case-insensitive text search in name or text
-                filtered_complaints = complaints.filter(text__icontains=search_query)
+                import re
+                escaped_query = re.escape(search_query)
+                filtered_complaints = complaints.filter(text__iregex=escaped_query)
                 results = list(filtered_complaints.values('id', 'email', 'name', 'text', 'x', 'y', 'cluster'))
                 
             elif search_type == 'semantic':
