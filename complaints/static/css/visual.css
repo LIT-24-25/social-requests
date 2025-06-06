@@ -110,14 +110,20 @@ h2 {
     min-height: 0;
 }
 
-.canvas-container { 
-    flex: 1; 
-    display: flex; 
-    flex-direction: column; 
-    height: 100%;
-    overflow: hidden; 
+.canvas-container {
+    position: relative;
+    flex: 1;
+    height: calc(100vh - 40px);
+    display: flex;
+    flex-direction: column;
+}
+
+canvas {
     width: 100%;
-    min-width: 600px;
+    height: calc(100% - 200px);
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .cluster-list { 
@@ -364,15 +370,16 @@ input[type="range"] {
 }
 
 .complaint-detail {
-    background-color: var(--panel-bg);
-    border-radius: var(--radius);
-    border: 1px solid var(--border-color);
-    overflow: hidden;
-    box-shadow: var(--shadow);
+    position: relative;
+    bottom: 0;
     width: 100%;
-    margin-top: 16px;
-    height: 180px;
-    flex-shrink: 0;
+    height: 200px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    margin-top: 10px;
+    padding: 15px;
+    overflow-y: auto;
 }
 
 .detail-title {
