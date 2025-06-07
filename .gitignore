@@ -6,6 +6,6 @@ __pycache__
 .pyc
 config/gigachat.txt
 config/openrouter.txt
-db.sqlite3
+*.sqlite3
 .env
 *.txt
