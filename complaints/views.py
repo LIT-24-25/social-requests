@@ -17,8 +17,6 @@ import threading
 import uuid
 from projects.models import Project
 from sklearn.metrics.pairwise import cosine_similarity
-from .management.commands.add_youtube import Command as YouTubeCommand
-from django.db.models import Q
 logger = logging.getLogger(__name__)
 
 class ComplaintListCreate(generics.ListCreateAPIView):

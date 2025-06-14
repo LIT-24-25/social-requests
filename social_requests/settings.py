@@ -26,7 +26,7 @@ SECRET_KEY = 'asdf'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG=1
 
-ALLOWED_HOSTS = ['127.0.0.1', 'localhost', '3214-109-252-147-0.ngrok-free.app', '*']
+ALLOWED_HOSTS = ['127.0.0.1', 'localhost', 'https://social_requests.onrender.com']
 
 
 # Application definition
