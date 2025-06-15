@@ -26,7 +26,7 @@ SECRET_KEY = 'asdf'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG=1
 
-ALLOWED_HOSTS = ['127.0.0.1', 'localhost', 'https://social_requests.onrender.com']
+ALLOWED_HOSTS = ['127.0.0.1', 'localhost', '93.183.81.141']
 
 
 # Application definition

@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Visual</title>
+    <title>Social Requests Visualizer</title>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <link href="{% static 'css/visual.css' %}" rel="stylesheet">
@@ -144,7 +144,7 @@
                                     </button>
                                 </div>
                                 <div v-if="isProcessingYouTube" style="margin-top: 8px; color: #4361ee; font-size: 0.9rem;">
-                                    Importing YouTube comments... [[ currentStatusMessage ]]
+                                    [[ currentStatusMessage ]]
                                 </div>
                                 <div v-if="youtubeError" class="error-message" style="margin-top: 10px; margin-bottom: 0; font-size: 0.9rem; display: flex; justify-content: space-between; align-items: center; width: 100%;">
                                     <span>[[ youtubeError ]]</span>
