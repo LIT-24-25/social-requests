@@ -26,7 +26,7 @@ SECRET_KEY = 'asdf'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG=1
 
-ALLOWED_HOSTS = ['127.0.0.1', 'localhost', '3214-109-252-147-0.ngrok-free.app', '*', '93.183.81.141']
+ALLOWED_HOSTS = ['127.0.0.1', 'localhost', '93.183.81.141']
 
 
 # Application definition
@@ -55,7 +55,7 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-ROOT_URLCONF = 'first_project.urls'
+ROOT_URLCONF = 'social_requests.urls'
 
 TEMPLATES = [
     {
@@ -75,7 +75,7 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = 'first_project.wsgi.application'
+WSGI_APPLICATION = 'social_requests.wsgi.application'
 
 
 # Database

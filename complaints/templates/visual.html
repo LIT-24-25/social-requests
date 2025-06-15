@@ -632,6 +632,7 @@
                         if (response.ok) {
                             const data = await response.json();
                             await this.updateClustersPanel();
+                            await this.fetchPoints();  // Обновляем точки с новыми данными кластеров
                             alert(`Cluster created successfully! ID: ${data.cluster_id}`);
                         } else {
                             alert("Error creating cluster");
