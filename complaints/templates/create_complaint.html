@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Создание жалобы</title>
+    <title>Social Requests Record</title>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     <link href="{% static 'css/create_complaint.css' %}" rel="stylesheet">
@@ -14,7 +14,8 @@
     {% csrf_token %}
     
     <div id="app" class="form-container">
-        <h1>Create a record</h1>
+        <h1>Social Requests</h1>
+        <h2 >Create a record</h2>
         
         <form @submit.prevent="submitComplaint">
             <div class="form-group">
