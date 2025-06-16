@@ -59,16 +59,16 @@ class Command(BaseCommand):
 
         logger.info(f"Processing {total} complaints with t-SNE for project ID {project_id}...")
 
-        # Загружаем и фильтруем эмбеддинги
+        # Загружаем и фильтруем эмбеддинги за один проход
+        valid_complaints = []
         valid_embeddings = []
-        valid_indices = []
-        for i, complaint in enumerate(queryset.iterator()):
+
+        for complaint in queryset.iterator():
             try:
-                # Проверяем, что эмбеддинг является списком чисел
                 if isinstance(complaint.embedding, list) and all(
                         isinstance(x, (int, float)) for x in complaint.embedding):
+                    valid_complaints.append(complaint)
                     valid_embeddings.append(complaint.embedding)
-                    valid_indices.append(i)
             except Exception as e:
                 logger.warning(f"Skipping complaint {complaint.id}: {str(e)}")
 
@@ -82,15 +82,14 @@ class Command(BaseCommand):
         tsne_results = calculate_tsne(valid_embeddings, perplexity)
 
         # Обновляем записи батчами
-        with tqdm(total=len(valid_indices), desc="Updating coordinates") as pbar:
-            for i in range(0, len(valid_indices), batch_size):
-                batch_indices = valid_indices[i:i + batch_size]
-                batch = list(queryset.filter(id__in=[queryset[j].id for j in batch_indices]))
+        with tqdm(total=len(valid_complaints), desc="Updating coordinates") as pbar:
+            for i in range(0, len(valid_complaints), batch_size):
+                batch = valid_complaints[i:i + batch_size]
                 for j, complaint in enumerate(batch):
                     complaint.x = tsne_results[i + j][0]
                     complaint.y = tsne_results[i + j][1]
 
                 Complaint.objects.bulk_update(batch, ['x', 'y'])
                 pbar.update(len(batch))
-        
+
         logger.info(f"Successfully updated coordinates for project ID {project_id}!")
