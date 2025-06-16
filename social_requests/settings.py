@@ -28,7 +28,6 @@ DEBUG = False
 
 ALLOWED_HOSTS = ['127.0.0.1', 'localhost', '93.183.81.141', "social-requests.space", "www.social-requests.space"]
 
-
 # Application definition
 
 INSTALLED_APPS = [
