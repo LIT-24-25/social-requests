@@ -50,16 +50,23 @@ class Cluster(models.Model):
                 while len(name.split(' ')) > 5:
                     name = call_gigachat(prompt_title)
                     counter+=1
-                    if counter > 10:
+                    if counter > 5:
                         break
                 counter = 0
                 while len(summary.split(' ')) > 25:
                     summary = call_gigachat(prompt_summary)
                     counter+=1
-                    if counter > 10:
+                    if counter > 5:
                         break
-                return (name, summary)
+                if name==None or summary==None:
+                    prompt = f"""Analyse the following complaints and create a brief summary, 
+                                highlighting the main problems and trends. Summary should containt 10-20 words:
 
+                                {combined_text}
+                                """
+                    response = call_openrouter(prompt)
+                    return response
+                return (name, summary)
             else:
                 prompt = f"""Analyse the following complaints and create a brief summary, 
                         highlighting the main problems and trends. Summary should containt 10-20 words:

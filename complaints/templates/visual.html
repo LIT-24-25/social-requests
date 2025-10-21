@@ -4,10 +4,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Visual</title>
+    <title>Social Requests Visualizer</title>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <link href="{% static 'css/visual.css' %}" rel="stylesheet">
+    <style>
+        .spinner {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+            margin-left: 8px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
 </head>
 <body>
     <div id="app">
@@ -25,8 +41,14 @@
                         <option v-for="option in availableModels" :key="option" :value="option">[[ option ]]</option>
                     </select>
                     <div class="buttons" style="margin-top: 8px;">
-                        <button @click="sendSelected">Send Selected</button>
-                        <button @click="resetSelection" style="background-color: #6b7280;">Reset Selection</button>
+                        <button @click="sendSelected" :disabled="isSendingSelected">
+                            Send Selected
+                            <span v-if="isSendingSelected" class="spinner"></span>
+                        </button>
+                        <button @click="resetSelection" :disabled="isResetting" style="background-color: #6b7280;">
+                            Reset Selection
+                            <span v-if="isResetting" class="spinner"></span>
+                        </button>
                     </div>
                 </div>
                 <hr class="section-divider">
@@ -50,6 +72,7 @@
                                 <button @click.stop="regenerateSummary(cluster.id)" 
                                         :disabled="isRegenerating === cluster.id">
                                     [[ isRegenerating === cluster.id ? 'Regenerating...' : 'Regenerate Summary' ]]
+                                    <span v-if="isRegenerating === cluster.id" class="spinner"></span>
                                 </button>
                             </div>
                             <div v-if="clusterDetails[cluster.id]?.complaints" class="complaint-list">
@@ -77,7 +100,7 @@
             </div>
 
             <div class="canvas-container">
-                <canvas ref="canvas" id="canvas" width="800" height="400"></canvas>
+                <canvas ref="canvas" id="canvas"></canvas>
                 
                 <!-- Complaint detail now always visible -->
                 <div class="complaint-detail">
@@ -121,13 +144,16 @@
                                     </button>
                                 </div>
                                 <div v-if="isProcessingYouTube" style="margin-top: 8px; color: #4361ee; font-size: 0.9rem;">
-                                    Importing YouTube comments... [[ currentStatusMessage ]]
+                                    [[ currentStatusMessage ]]
                                 </div>
                                 <div v-if="youtubeError" class="error-message" style="margin-top: 10px; margin-bottom: 0; font-size: 0.9rem; display: flex; justify-content: space-between; align-items: center; width: 100%;">
                                     <span>[[ youtubeError ]]</span>
                                     <button @click="clearYoutubeError" style="background: none; color: #dc2626; font-weight: bold; padding: 0 5px; font-size: 1rem; min-width: auto;">×</button>
                                 </div>
-                                <button @click="showFormQRDialog" style="margin-top: 12px; width: 100%;">Generate Form</button>
+                                <button @click="showFormQRDialog" style="margin-top: 12px; width: 100%;" :disabled="isGeneratingForm">
+                                    Generate Form
+                                    <span v-if="isGeneratingForm" class="spinner"></span>
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -146,7 +172,13 @@
                             </div>
                             <button @click="performSearch" style="margin-top: 8px; width: 100%;" :disabled="isSearching">
                                 [[ isSearching ? 'Searching...' : 'Search' ]]
+                                <span v-if="isSearching" class="spinner"></span>
                             </button>
+                            <div v-if="searchResults.length === 0 && hasSearched && !isSearching" 
+                                style="margin-top: 10px; padding: 8px; background-color: #f3f4f6; border: 1px solid #e5e7eb; 
+                                border-radius: 6px; color: #6b7280; font-size: 0.9rem; text-align: center;">
+                                No results found for '[[ searchQuery ]]'
+                            </div>
                             <div v-if="searchResults.length > 0" style="margin-top: 8px; font-size: 0.9rem; color: #4b5563;">
                                 Found [[ searchResults.length ]] results
                             </div>
@@ -161,8 +193,14 @@
                                 <span>Perplexity: [[ step ]]</span>
                             </label>
                             <input type="range" id="perplexitySlider" min="1" max="50" step="1" v-model="step" class="form-range">
-                            <button @click="applyTsne" style="margin-top: 10px; width: 100%;">Apply T-SNE</button>
-                            <button @click="applyAutoClustering" style="margin-top: 8px; width: 100%;">Automatic Clustering</button>
+                            <button @click="applyTsne" style="margin-top: 10px; width: 100%;" :disabled="isApplyingTsne">
+                                Apply T-SNE
+                                <span v-if="isApplyingTsne" class="spinner"></span>
+                            </button>
+                            <button @click="applyAutoClustering" style="margin-top: 8px; width: 100%;" :disabled="isApplyingClustering">
+                                Automatic Clustering
+                                <span v-if="isApplyingClustering" class="spinner"></span>
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -265,8 +303,6 @@
                     youtubeUrl: "",
                     isProcessingYouTube: false,
                     currentStatusMessage: "",
-                    countdownSeconds: 0,
-                    countdownIntervalId: null,
                     youtubeError: null,
                     searchType: "email",
                     searchQuery: "",
@@ -275,7 +311,14 @@
                     showQRDialog: false,
                     formUrl: "",
                     qrCodeUrl: "",
-                    copied: false
+                    copied: false,
+                    isSendingSelected: false,
+                    isResetting: false,
+                    isApplyingTsne: false,
+                    isApplyingClustering: false,
+                    isGeneratingForm: false,
+                    hasSearched: false,
+                    resizeTimeout: null
                 }
             },
             async mounted() {
@@ -294,9 +337,18 @@
                 // Draw initial points
                 this.drawPoints();
             },
+            watch: {
+                searchQuery() {
+                    // Reset hasSearched when user types new query
+                    this.hasSearched = false;
+                }
+            },
             beforeUnmount() {
-                // Clean up any timers when component is destroyed
-                this.clearCountdownTimer();
+                // Clean up resize listener
+                window.removeEventListener('resize', this.handleResize);
+                if (this.resizeTimeout) {
+                    clearTimeout(this.resizeTimeout);
+                }
             },
             methods: {
                 // Canvas methods
@@ -307,13 +359,41 @@
                     this.ctx = canvas.getContext('2d');
                     if (!this.ctx) return;
                     
+                    this.resizeCanvas();
                     this.setupCanvasEvents();
+                    
+                    // Add resize listener
+                    window.addEventListener('resize', this.handleResize);
+                },
+                
+                resizeCanvas() {
+                    const canvas = this.$refs.canvas;
+                    if (!canvas) return;
+                    
+                    const rect = canvas.getBoundingClientRect();
+                    
+                    // Set canvas internal size to match display size
+                    canvas.width = rect.width;
+                    canvas.height = rect.height;
+                    
+                    // Redraw points after resize
+                    this.drawPoints();
+                },
+                
+                handleResize() {
+                    // Debounce resize events
+                    clearTimeout(this.resizeTimeout);
+                    this.resizeTimeout = setTimeout(() => {
+                        this.resizeCanvas();
+                    }, 100);
                 },
                 
                 drawPoints() {
                     if (!this.ctx) return;
 
                     const canvas = this.$refs.canvas;
+                    
+                    // Clear the entire canvas
                     this.ctx.clearRect(0, 0, canvas.width, canvas.height);
                     
                     this.ctx.save();
@@ -542,6 +622,7 @@
                     }
 
                     try {
+                        this.isSendingSelected = true;
                         const response = await fetch('/project/{{ project_id }}/api/create-cluster/', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
@@ -551,6 +632,7 @@
                         if (response.ok) {
                             const data = await response.json();
                             await this.updateClustersPanel();
+                            await this.fetchPoints();  // Обновляем точки с новыми данными кластеров
                             alert(`Cluster created successfully! ID: ${data.cluster_id}`);
                         } else {
                             alert("Error creating cluster");
@@ -558,6 +640,8 @@
                     } catch (error) {
                         console.error('Error:', error);
                         alert("An error occurred while sending data");
+                    } finally {
+                        this.isSendingSelected = false;
                     }
                 },
                 
@@ -620,13 +704,18 @@
                 },
                 
                 resetSelection() {
+                    this.isResetting = true;
                     this.points.forEach(p => p.selected = false);
                     this.currentPoint = {};
                     this.drawPoints();
+                    setTimeout(() => {
+                        this.isResetting = false;
+                    }, 300);
                 },
                 
                 async applyTsne() {
                     try {
+                        this.isApplyingTsne = true;
                         const response = await fetch('/project/{{ project_id }}/api/apply_tsne/', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
@@ -642,12 +731,15 @@
                     } catch (error) {
                         console.error('Error:', error);
                         alert("An error occurred while sending request");
+                    } finally {
+                        this.isApplyingTsne = false;
                     }
                 },
                 
                 async applyAutoClustering() {
                     try {
                         this.error = null;
+                        this.isApplyingClustering = true;
                         const response = await fetch('/project/{{ project_id }}/api/clusterising/', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' }
@@ -666,6 +758,8 @@
                         console.error('Error automatic clustering:', error);
                         this.error = error.message;
                         alert("Error: " + error.message);
+                    } finally {
+                        this.isApplyingClustering = false;
                     }
                 },
                 
@@ -752,6 +846,8 @@
                     
                     try {
                         this.isSearching = true;
+                        this.searchResults = []; // Reset results before new search
+                        this.hasSearched = false; // Reset search state
                         
                         // Prepare request body
                         const requestBody = {
@@ -775,42 +871,9 @@
                         
                         // Process search results
                         this.searchResults = data.results || [];
+                        this.hasSearched = true; // Set search as completed
                         
-                        if (this.searchResults.length === 0) {
-                            // Show a friendly message for no results instead of an error
-                            this.$nextTick(() => {
-                                const noResultsDiv = document.createElement('div');
-                                noResultsDiv.style.marginTop = '10px';
-                                noResultsDiv.style.padding = '8px';
-                                noResultsDiv.style.backgroundColor = '#f3f4f6';
-                                noResultsDiv.style.border = '1px solid #e5e7eb';
-                                noResultsDiv.style.borderRadius = '6px';
-                                noResultsDiv.style.color = '#6b7280';
-                                noResultsDiv.style.fontSize = '0.9rem';
-                                noResultsDiv.style.textAlign = 'center';
-                                noResultsDiv.textContent = `No results found for '${this.searchQuery}'`;
-                                
-                                // Find the search control group and append the message
-                                const controlGroup = document.querySelector('.control-group');
-                                
-                                // Remove any existing no-results message
-                                const existingMessage = controlGroup.querySelector('.no-results-message');
-                                if (existingMessage) {
-                                    existingMessage.remove();
-                                }
-                                
-                                noResultsDiv.className = 'no-results-message';
-                                controlGroup.appendChild(noResultsDiv);
-                                
-                                // Auto-remove after 5 seconds
-                                setTimeout(() => {
-                                    const messageToRemove = controlGroup.querySelector('.no-results-message');
-                                    if (messageToRemove) {
-                                        messageToRemove.remove();
-                                    }
-                                }, 5000);
-                            });
-                        } else {
+                        if (this.searchResults.length > 0) {
                             // Reset any previous selection
                             this.points.forEach(p => p.selected = false);
                             
@@ -821,14 +884,6 @@
                             this.points.forEach(point => {
                                 if (resultIds.has(point.id)) {
                                     point.selected = true;
-                                }
-                            });
-                            
-                            // Remove any existing no-results message
-                            this.$nextTick(() => {
-                                const existingMessage = document.querySelector('.no-results-message');
-                                if (existingMessage) {
-                                    existingMessage.remove();
                                 }
                             });
                             
@@ -849,7 +904,6 @@
                         }
                     } catch (error) {
                         console.error('Search error:', error);
-                        // Don't set error message to UI, just log to console
                     } finally {
                         this.isSearching = false;
                     }
@@ -861,39 +915,25 @@
                         return;
                     }
                     
-                    // Clear any existing countdown timer
-                    this.clearCountdownTimer();
-                    
                     try {
                         this.isProcessingYouTube = true;
                         this.error = null;
-                        this.youtubeError = null; // Clear any previous YouTube errors
-                        this.currentStatusMessage = "Starting import process...";
+                        this.youtubeError = null;
+                        this.currentStatusMessage = "Importing comments...";
                         
                         const response = await fetch('/project/{{ project_id }}/api/add-youtube/', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ 
-                                video_url: this.youtubeUrl,
-                                max_results: 1000,  // Default max results
-                                batch_size: 50,     // Default batch size
-                                project_id: this.projectId
+                                video_url: this.youtubeUrl
                             })
                         });
 
                         if (response.ok) {
                             const data = await response.json();
                             this.youtubeUrl = "";
-                            
-                            if (data.task_id) {
-                                this.currentStatusMessage = "Task started. Checking status...";
-                                this.checkYouTubeTaskStatus(data.task_id);
-                            } else {
-                                this.fetchPoints();
-                                alert("YouTube comments successfully imported!");
-                                this.isProcessingYouTube = false;
-                                this.currentStatusMessage = "";
-                            }
+                            await this.fetchPoints();
+                            alert(data.message);
                         } else {
                             const errorData = await response.json();
                             const errorMessage = errorData.error || "Error importing YouTube comments";
@@ -902,102 +942,10 @@
                     } catch (error) {
                         console.error('Error:', error);
                         this.error = error.message;
-                        this.youtubeError = error.message; // Set YouTube specific error
-                        this.currentStatusMessage = "Import failed";
-                        alert("Error importing YouTube comments: " + error.message);
+                        this.youtubeError = error.message;
+                    } finally {
                         this.isProcessingYouTube = false;
-                    }
-                },
-                
-                // Check task status with exponential backoff
-                async checkYouTubeTaskStatus(taskId, attempt = 1) {
-                    try {
-                        // Clear any existing countdown interval
-                        this.clearCountdownTimer();
-                        
-                        const response = await fetch(`/project/{{ project_id }}/api/task-status/${taskId}/`);
-                        if (response.ok) {
-                            const data = await response.json();
-                            
-                            if (['PENDING', 'STARTED', 'PROGRESS'].includes(data.status)) {
-                                // Calculate next polling interval with exponential backoff
-                                // Start with 3 seconds, max out at 30 seconds
-                                const baseDelay = 3000; // 3 seconds
-                                const maxDelay = 30000; // 30 seconds
-                                const backoffFactor = 1.5;
-                                
-                                let nextDelay = Math.min(
-                                    baseDelay * Math.pow(backoffFactor, attempt - 1), 
-                                    maxDelay
-                                );
-                                
-                                // Set initial countdown seconds
-                                this.countdownSeconds = Math.round(nextDelay/1000);
-                                
-                                // Update status message initially
-                                this.updateStatusWithCountdown(data.status);
-                                
-                                // Start countdown timer that updates every second
-                                this.countdownIntervalId = setInterval(() => {
-                                    this.countdownSeconds--;
-                                    this.updateStatusWithCountdown(data.status);
-                                    
-                                    // If countdown reaches zero, clear the interval
-                                    if (this.countdownSeconds <= 0) {
-                                        this.clearCountdownTimer();
-                                    }
-                                }, 1000);
-                                
-                                console.log(`Task still running. Next check in ${nextDelay/1000} seconds`);
-                                
-                                // Task still running, check again with increasing delay
-                                setTimeout(() => this.checkYouTubeTaskStatus(taskId, attempt + 1), nextDelay);
-                            } else if (data.status === 'SUCCESS') {
-                                // Task complete
-                                this.clearCountdownTimer();
-                                this.currentStatusMessage = "Import complete! Refreshing data...";
-                                this.youtubeError = null; // Clear any errors on success
-                                
-                                // Store the current selected cluster ID
-                                const currentClusterId = this.selectedClusterId;
-                                
-                                // Refresh points
-                                await this.fetchPoints();
-                                
-                                alert(`YouTube import complete! Imported ${data.result.success_count} comments.`);
-                                this.isProcessingYouTube = false;
-                                this.currentStatusMessage = "";
-                            } else {
-                                // Task failed
-                                this.clearCountdownTimer();
-                                this.currentStatusMessage = "Import failed";
-                                const errorMessage = data.result || "YouTube import failed";
-                                this.youtubeError = errorMessage; // Set YouTube specific error
-                                throw new Error(errorMessage);
-                            }
-                        } else {
-                            throw new Error("Error checking task status");
-                        }
-                    } catch (error) {
-                        console.error('Error checking task status:', error);
-                        this.clearCountdownTimer();
-                        this.currentStatusMessage = "Error checking import status";
-                        this.youtubeError = error.message; // Set YouTube specific error
-                        alert("Error checking YouTube import status: " + error.message);
-                        this.isProcessingYouTube = false;
-                    }
-                },
-                
-                // Helper to update status message with current countdown
-                updateStatusWithCountdown(status) {
-                    this.currentStatusMessage = `Status: ${status}. Next check in ${this.countdownSeconds} second${this.countdownSeconds !== 1 ? 's' : ''}...`;
-                },
-                
-                // Helper to clear countdown timer
-                clearCountdownTimer() {
-                    if (this.countdownIntervalId) {
-                        clearInterval(this.countdownIntervalId);
-                        this.countdownIntervalId = null;
+                        this.currentStatusMessage = "";
                     }
                 },
                 
@@ -1053,12 +1001,16 @@
                     this.currentPoint = {};
                 },
                 showFormQRDialog() {
+                    this.isGeneratingForm = true;
                     const projectId = '{{ project_id }}';
                     this.formUrl = `${window.location.origin}/project/${projectId}`;
                     // Generate QR code URL using an API
                     this.qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(this.formUrl)}`;
                     this.showQRDialog = true;
                     this.copied = false;
+                    setTimeout(() => {
+                        this.isGeneratingForm = false;
+                    }, 500);
                 },
                 closeQRDialog() {
                     this.showQRDialog = false;
