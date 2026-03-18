@@ -301,6 +301,7 @@ def run_add_youtube_command(task_id, video_url, project_id):
         }
 
         call_command('applying_T-sne', perplexity=25, project_id=project_id)
+        call_command('clusterising', project_id = project_id, auto_clusters=True)
 
     except Exception as e:
         # Update task status to failure

@@ -1,5 +1,6 @@
 from django.contrib import admin
-from django.urls import path, include
+from django.contrib.staticfiles.views import serve as staticfiles_serve
+from django.urls import path, include, re_path
 from complaints.views import create_complaint, visual_view
 
 urlpatterns = [
@@ -11,4 +12,5 @@ urlpatterns = [
 
     path('project/<int:project_id>/', create_complaint),
     path('project/<int:project_id>/visual/', visual_view),
+    re_path(r'^static/(?P<path>.*)$', staticfiles_serve, {'insecure': True}),
 ]
