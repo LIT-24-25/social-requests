@@ -26,7 +26,7 @@ SECRET_KEY = 'asdf'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
 
-ALLOWED_HOSTS = ['127.0.0.1', 'localhost', '93.183.81.141', "social-requests.space", "www.social-requests.space"]
+ALLOWED_HOSTS = ['127.0.0.1', 'localhost', '5.42.122.14', "social-requests.ru", "www.social-requests.ru"]
 
 # Application definition
 
