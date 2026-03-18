@@ -9,3 +9,5 @@ config/openrouter.txt
 *.sqlite3
 .env
 *.txt
+*.vs
+staticfiles/
